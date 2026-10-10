@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fednice - Create Landlord Account</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+body{background:#0a0a0a;color:#fff;min-height:100vh;position:relative;overflow-x:hidden}
+body::before{content:'GO';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:38vw;font-weight:900;color:rgba(255,255,255,0.03);z-index:0;pointer-events:none;letter-spacing:-20px}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:#111;border-bottom:1px solid #222;position:relative;z-index:2}
+.logo{font-weight:800;font-size:22px;line-height:1}
+.logo b{color:#1E90FF}.logo span{color:#FF6A00}
+.logo small{display:block;font-size:8px;color:#888;letter-spacing:1px}
+.login-link{font-size:13px;color:#ddd;text-decoration:none;border-bottom:2px solid #FF6A00;padding-bottom:2px}
+.main{display:flex;max-width:1300px;margin:18px auto;gap:18px;padding:0 16px;position:relative;z-index:2}
+.left,.right{background:#141414;border-radius:18px;border:1px solid #222;padding:22px;flex:1}
+.left h1{font-size:38px;font-weight:800;margin-top:14px}
+.left p.sub{color:#aaa;margin:6px 0 18px;font-size:13px}
+.left p.sub b{color:#fff}
+.slideshow{position:relative;height:420px;overflow:hidden;border-radius:14px;background:#000}
+.slide{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;transition:opacity 0.8s}
+.slide.active{opacity:1}
+.slide img{width:100%;height:100%;object-fit:cover}
+.badge{position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,0.75);padding:8px 12px;border-radius:10px;font-size:12px;line-height:1.2;border:1px solid #333}
+.dots{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:#333;cursor:pointer}
+.dot.active{background:#FF6A00}
+.right h2{font-size:26px;font-weight:800}
+.right p.orange{color:#FF6A00;font-size:12px;margin:6px 0 16px;font-weight:600}
+label{font-size:12px;color:#bbb;margin-top:12px;display:block;margin-bottom:4px}
+input,select{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #333;background:#1e1e1e;color:#fff;font-size:13px;outline:none}
+input::placeholder{color:#777}
+input:focus,select:focus{border-color:#FF6A00}
+.hint{font-size:11px;color:#FF8A3D;margin-top:4px;display:flex;align-items:center;gap:6px}
+.strength{height:4px;background:#222;border-radius:10px;margin-top:6px;overflow:hidden}
+.strength div{height:100%;width:0%;background:#FF6A00;transition:0.3s}
+.fee-box{margin-top:16px;background:#1a150f;border:1px solid #FF6A00;border-radius:12px;padding:14px}
+.fee-box b{color:#FF6A00}
+.receipt{font-size:11px;color:#aaa;margin-top:8px;line-height:1.4}
+.check{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12px;color:#bbb}
+.check input{width:auto}
+.btn{width:100%;margin-top:18px;background:#FF6A00;color:#000;font-weight:800;padding:14px;border:none;border-radius:12px;font-size:15px;cursor:pointer}
+.btn:hover{background:#ff7f26}
+.note{font-size:11px;color:#888;text-align:center;margin-top:10px}
+@media(max-width:900px){.main{flex-direction:column}.left h1{font-size:28px}.slideshow{height:300px}}
+</style>
+</head>
+<body>
+<div class="topbar">
+<div class="logo"><b>FD</b><span>NICE</span><small>PRESENTING CONVENIENCE 0114462079</small></div>
+<a class="login-link" href="#" onclick="showLogin()">Already have an account? Log In</a>
+</div>
+
+<div class="main">
+<div class="left">
+<div class="logo" style="margin-bottom:10px"><b>FD</b><span>NICE</span></div>
+<h1>Kenyan Rental Properties</h1>
+<p class="sub">Mabati Houses • Bedsitters • Apartments • Landlord Focused 🇰🇪</p>
+
+<div class="slideshow" id="slideshow">
+<div class="slide active"><img src="https://images.unsplash.com/photo-1523217582562-09d0def993a7?w=800"><div class="badge"><b>1/3 • Mabati House</b><br>Kiambu - Chege Wafula</div></div>
+<div class="slide"><img src="https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800"><div class="badge"><b>2/3 • Bedsitter</b><br>Nairobi CBD - Akinyi Otieno</div></div>
+<div class="slide"><img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800"><div class="badge"><b>3/3 • 1-Bed Apartment</b><br>Eldoret - Kipchoge Arap</div></div>
+</div>
+<div class="dots"><div class="dot active" onclick="goSlide(0)"></div><div class="dot" onclick="goSlide(1)"></div><div class="dot" onclick="goSlide(2)"></div></div>
+<p class="sub" style="margin-top:14px;text-align:center">Explore trusted rental properties across Kenya • Photos updated weekly</p>
+</div>
+
+<div class="right">
+<h2>Create Landlord Account</h2>
+<p class="orange">Join Fednice Rental System • Register to manage your properties</p>
+
+<form id="regForm" onsubmit="return handleRegister(event)">
+<label>Full Name <span style="color:#666;font-size:10px">e.g. Wafula, Otieno, Kamau, Wambua, Moraa, Leparan</span></label>
+<input id="fullName" required placeholder="e.g. Jane Wambui Kamau - Kikuyu, Luo, Luhya, Kamba, Kisii, Maasai, Kalenjin">
+
+<label>ID Number</label>
+<input id="idNo" required pattern="[0-9]{7,8}" placeholder="e.g. 34567892" inputmode="numeric">
+
+<label>Phone</label>
+<input id="phone" required placeholder="+254 7XX XXX XXX e.g. 0114462079">
+
+<label>County (47 Counties)</label>
+<select id="county" required onchange="loadConstituencies()"><option value="">Select County</option></select>
+
+<label>Constituency</label>
+<select id="constituency" required><option value="">Select Constituency first</option></select>
+
+<label>Property Name</label>
+<input id="propertyName" required placeholder="e.g. Sunshine Apartments, Kayole - will appear on dashboard">
+
+<label>Password</label>
+<div style="position:relative">
+<input id="password" type="password" required placeholder="Create strong password" oninput="checkStrength()">
+<span onclick="togglePw()" style="position:absolute;right:12px;top:11px;cursor:pointer">👁️</span>
+</div>
+<div class="strength"><div id="strengthBar"></div></div>
+<div class="hint">⚠️ Strong password: 8+ chars, include UPPERCASE, number & symbol. Must be alphanumeric. Ex: Fednice2025@</div>
+
+<div class="fee-box">
+<b>App Registration Fee</b><br>
+<div style="margin-top:4px;font-size:13px">KSH 2500 — One-time fee to activate landlord account</div>
+<div class="receipt">✅ After you pay, you will receive <b>instant receipt via SMS & WhatsApp</b> from Fednice. Fednice also sends automatic rent reminders & receipts to your tenants.<br>
+<label style="margin-top:8px;display:flex;gap:6px"><input type="checkbox" checked> SMS receipt</label>
+<label style="display:flex;gap:6px"><input type="checkbox" checked> WhatsApp receipt</label>
+</div>
+</div>
+
+<div class="check"><input type="checkbox" required> <span>I agree to Terms & Privacy - Protected under Kenya Data Protection Act</span></div>
+
+<button class="btn" type="submit">Register Now →</button>
+<div class="note">You will be prompted to complete KSH 2500 payment via M-Pesa after registration. Property name will appear on next page.</div>
+</form>
+
+<div id="loginBox" style="display:none">
+<h2>Welcome Back</h2><p class="orange">Owner login: 0114462079 / Fedinant27 → demo data</p>
+<label>Phone</label><input id="loginPhone" placeholder="0114462079">
+<label>Password</label><input id="loginPass" type="password" placeholder="Fedinant27">
+<button class="btn" onclick="handleLogin()">Log In →</button>
+<div class="note" style="margin-top:12px"><a href="#" onclick="showRegister()" style="color:#FF6A00">Back to Register</a></div>
+</div>
+
+</div>
+</div>
+
+<script>
+const counties = {
+"Nairobi County":["Westlands","Dagoretti North","Dagoretti South","Langata","Kibra","Roysambu","Kasarani","Ruaraka","Embakasi South","Embakasi North","Embakasi Central","Embakasi East","Embakasi West","Makadara","Kamukunji","Starehe","Mathare"],
+"Mombasa County":["Changamwe","Jomvu","Kisauni","Nyali","Likoni","Mvita"],
+"Kiambu County":["Gatundu North","Gatundu South","Juja","Thika Town","Ruiru","Githunguri","Kiambu","Kiambaa","Kabete","Kikuyu","Limuru","Lari"],
+"Nakuru County":["Molo","Njoro","Naivasha","Gilgil","Kuresoi South","Kuresoi North","Subukia","Rongai","Bahati","Nakuru Town West","Nakuru Town East"],
+"Uasin Gishu County":["Soy","Turbo","Moiben","Ainabkoi","Kapseret","Kesses"],
+"Nandi County":["Tinderet","Aldai","Nandi Hills","Chesumei","Emgwen","Mosop"],
+"Machakos County":["Masinga","Yatta","Kangundo","Matungulu","Kathiani","Mavoko","Machakos Town","Mwala"],
+"Kakamega County":["Lugari","Likuyani","Malava","Lurambi","Navakholo","Mumias West","Mumias East","Matungu","Butere","Khwisero","Shinyalu","Ikolomani"],
+"Kisumu County":["Kisumu East","Kisumu West","Kisumu Central","Seme","Nyando","Muhoroni","Nyakach"],
+"Turkana County":["Turkana North","Turkana West","Turkana Central","Loima","Turkana South","Turkana East"],
+"Other Counties":["Baringo","Bomet","Bungoma","Busia","Elgeyo-Marakwet","Embu","Garissa","Homa Bay","Isiolo","Kajiado","Kericho","Kilifi","Kirinyaga","Kisii","Kitui","Kwale","Laikipia","Lamu","Mandera","Marsabit","Meru","Migori","Murang'a","Narok","Nyamira","Nyandarua","Nyeri","Samburu","Siaya","Taita-Taveta","Tana River","Tharaka-Nithi","Trans Nzoia","Vihiga","Wajir","West Pokot"]
+};
+const countySelect=document.getElementById('county');
+Object.keys(counties).forEach(c=>{let opt=document.createElement('option');opt.value=c;opt.textContent=c;countySelect.appendChild(opt);});
+function loadConstituencies(){
+  const c=countySelect.value;
+  const cons=document.getElementById('constituency');
+  cons.innerHTML='';
+  if(!c)return;
+  counties[c].forEach(co=>{let opt=document.createElement('option');opt.value=co;opt.textContent=co;cons.appendChild(opt);});
+}
+let cur=0;
+function goSlide(n){cur=n;showSlide();}
+function showSlide(){
+  document.querySelectorAll('.slide').forEach((s,i)=>s.classList.toggle('active',i===cur));
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
+}
+setInterval(()=>{cur=(cur+1)%3;showSlide();},3500);
+function checkStrength(){
+  const p=document.getElementById('password').value;
+  let score=0;
+  if(p.length>=8)score+=25;
+  if(/[A-Z]/.test(p))score+=25;
+  if(/[0-9]/.test(p))score+=25;
+  if(/[^A-Za-z0-9]/.test(p))score+=25;
+  document.getElementById('strengthBar').style.width=score+'%';
+  document.getElementById('strengthBar').style.background=score<50?'red':score<75?'orange':'#00ff88';
+}
+function togglePw(){const i=document.getElementById('password');i.type=i.type==='password'?'text':'password';}
+function handleRegister(e){
+  e.preventDefault();
+  const data={
+    fullName:document.getElementById('fullName').value,
+    idNo:document.getElementById('idNo').value,
+    phone:document.getElementById('phone').value,
+    county:document.getElementById('county').value,
+    constituency:document.getElementById('constituency').value,
+    propertyName:document.getElementById('propertyName').value,
+    password:document.getElementById('password').value
+  };
+  if(!/[A-Za-z]/.test(data.password)||!/[0-9]/.test(data.password)){
+    alert('Password must be alphanumeric with letters and numbers. Example Fednice2025@');
+    return false;
+  }
+  localStorage.setItem('fednice_user',JSON.stringify(data));
+  if(data.phone==='0114462079' && data.password==='Fedinant27'){
+    localStorage.setItem('isDemo','true');
+  }else{localStorage.setItem('isDemo','false');}
+  alert('✅ Registered! Property: '+data.propertyName+'\n\nNext: KSH 2500 payment - receipt will be sent via SMS & WhatsApp.\n\nThen set tenant payment methods.');
+  document.body.innerHTML='<div style="display:flex;height:100vh;align-items:center;justify-content:center;flex-direction:column;background:#0a0a0a;color:#fff"><h1 style="color:#FF6A00">'+data.propertyName+'</h1><p>Dashboard loading... '+(localStorage.getItem('isDemo')==='true'?'DEMO DATA - All tribes sample loaded':'Empty dashboard for new landlord')+'</p><p style="margin-top:10px;font-size:12px;color:#888">SMS Receipt sent to '+data.phone+' ✅ | WhatsApp receipt sent ✅</p></div>';
+  return false;
+}
+function showLogin(){document.getElementById('regForm').style.display='none';document.getElementById('loginBox').style.display='block';}
+function showRegister(){document.getElementById('regForm').style.display='block';document.getElementById('loginBox').style.display='none';}
+function handleLogin(){
+  const phone=document.getElementById('loginPhone').value.trim();
+  const pass=document.getElementById('loginPass').value.trim();
+  if(phone==='0114462079' && pass==='Fedinant27'){
+    localStorage.setItem('isDemo','true');
+    alert('Owner login success - Loading FULL DEMO with tribe names, Kapsabet data, M-Pesa...');
+    document.body.innerHTML='<div style="display:flex;height:100vh;align-items:center;justify-content:center;flex-direction:column;background:#0a0a0a;color:#fff"><h1 style="color:#FF6A00">Fednice Demo Dashboard</h1><p>Welcome Fedinant! Demo tenants loaded - Kikuyu, Luo, Luhya, Kalenjin, Kamba, Kisii, Maasai etc.</p></div>';
+  }else if(phone && pass){
+    localStorage.setItem('isDemo','false');
+    alert('Login success - Empty dashboard for '+phone);
+  }else{alert('Enter phone and password');}
+}
+</script>
+</body>
+</html>
