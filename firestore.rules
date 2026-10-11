@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Landlord profile creation and edits are server-only. The browser can read its own profile.
+    match /landlords/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+
+      // Rental records belong to one authenticated landlord.
+      match /{collectionName}/{recordId} {
+        allow read, create, update, delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Activation challenges are private to the trusted API using the Admin SDK.
+    match /activationChallenges/{challengeId} {
+      allow read, write: if false;
+    }
+
+    // Deny browser access to collections not explicitly opened above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

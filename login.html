@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0a0a"><title>FEDNICE | Landlord Login</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#0a0a0a;color:#fff;font:15px Inter,Arial,sans-serif;display:flex;flex-direction:column}.topbar{padding:16px 24px;background:#111;border-bottom:1px solid #222}.logo{font-weight:800;font-size:22px}.logo b{color:#1e90ff}.logo span{color:#ff6a00}.card{width:min(440px,calc(100% - 32px));margin:9vh auto 40px;padding:28px;background:#141414;border:1px solid #292929;border-radius:18px}h1{margin:0 0 8px;font-size:25px}p{color:#aaa;line-height:1.55}label{display:block;margin:16px 0 5px;color:#bbb;font-size:13px}input{width:100%;padding:13px 14px;border-radius:10px;border:1px solid #393939;background:#1e1e1e;color:#fff;font-size:14px}input:focus{outline:2px solid #ff6a00}.btn{width:100%;margin-top:20px;padding:14px;border:0;border-radius:10px;background:#ff6a00;color:#111;font-weight:800;cursor:pointer}.btn:disabled{opacity:.6;cursor:wait}.links{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px}a{color:#ff9a53}#message{min-height:24px;color:#ffb47f;font-size:13px}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #252525;color:#aaa;font-size:12px;line-height:1.6}.footer b{color:#ff6a00}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="logo"><b>Fed</b><span>nice</span></div></header>
+<main class="card">
+<h1>Landlord login</h1><p>Sign in using the email and password you chose when registering.</p>
+<form id="loginForm"><label for="email">Email address</label><input id="email" type="email" autocomplete="username" required><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required><button class="btn" id="loginButton" type="submit">Sign in</button><p id="message" role="status" aria-live="polite"></p></form>
+<div class="links"><a href="register.html">Create landlord account</a><a href="#" id="resetPassword">Forgot password?</a></div>
+</main>
+<footer class="footer">For any assistance call <b>0797477437</b> or contact <b>fednicesolutions@gmail.com</b></footer>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="firebase.js"></script>
+<script>
+const FEDNICE_API_BASE = '';
+const form=document.getElementById('loginForm'),message=document.getElementById('message'),button=document.getElementById('loginButton');
+form.addEventListener('submit',async event=>{
+  event.preventDefault();button.disabled=true;message.textContent='Signing in…';
+  try{
+    await firebase.auth().signInWithEmailAndPassword(document.getElementById('email').value.trim(),document.getElementById('password').value);
+    if(!FEDNICE_API_BASE) throw new Error('The landlord activation service is not configured yet. Please contact Fednice Solutions.');
+    const token=await firebase.auth().currentUser.getIdToken();
+    const response=await fetch(FEDNICE_API_BASE.replace(/\/$/,'')+'/api/landlords/me',{headers:{Authorization:'Bearer '+token}});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data.error||'This login does not have an activated landlord account.');
+    window.location.href='dashboard.html';
+  }catch(error){await firebase.auth().signOut().catch(()=>{});message.textContent=error.code==='auth/invalid-credential'?'Email or password is incorrect.':error.message||'Could not sign in.';button.disabled=false;}
+});
+document.getElementById('resetPassword').addEventListener('click',async event=>{
+  event.preventDefault();const email=document.getElementById('email').value.trim();
+  if(!email){message.textContent='Enter your email address first, then choose Forgot password.';return;}
+  try{await firebase.auth().sendPasswordResetEmail(email);message.textContent='Password reset instructions have been sent if that email has an account.';}
+  catch(error){message.textContent=error.message||'Could not send reset instructions.';}
+});
+</script>
+</body>
+</html>

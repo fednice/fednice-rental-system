@@ -21,10 +21,11 @@
     h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.35rem); letter-spacing: -.035em; text-align: center; }
     .intro { max-width: 580px; margin: 16px auto 38px; color: rgba(255,255,255,.7); line-height: 1.65; text-align: center; }
     .choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-    .choice { display: flex; min-height: 280px; flex-direction: column; align-items: flex-start; padding: 30px; border: 1px solid #303030; border-radius: 18px; background: #111; text-decoration: none; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+    .choice { display: flex; min-height: 370px; flex-direction: column; align-items: flex-start; padding: 30px; border: 1px solid #303030; border-radius: 18px; background: #111; text-decoration: none; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
     .choice:hover { transform: translateY(-3px); background: #151515; }
     .choice.landlord:hover, .choice.landlord:focus-visible { border-color: var(--orange); }
     .choice.tenant:hover, .choice.tenant:focus-visible { border-color: var(--blue); }
+    .choice-image { display: block; width: calc(100% + 60px); height: 148px; margin: -30px -30px 23px; border-radius: 18px 18px 0 0; object-fit: cover; }
     .choice-label { margin: 0 0 18px; font-size: .8rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
     .landlord .choice-label { color: var(--orange); }
     .tenant .choice-label { color: var(--blue); }
@@ -43,7 +44,8 @@
       main { padding: 48px 18px 58px; }
       .intro { margin-bottom: 28px; }
       .choices { grid-template-columns: 1fr; gap: 14px; }
-      .choice { min-height: 240px; padding: 24px; }
+      .choice { min-height: 330px; padding: 24px; }
+      .choice-image { width: calc(100% + 48px); height: 138px; margin: -24px -24px 20px; }
       footer { flex-direction: column; gap: 8px; }
     }
   </style>
@@ -61,12 +63,14 @@
       <p class="intro">Choose the account that fits you. You’ll continue to the right registration page.</p>
       <div class="choices">
         <a class="choice landlord" href="register.html">
+          <img class="choice-image" src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=1200" alt="Apartment buildings" loading="lazy">
           <p class="choice-label">For landlords</p>
           <h2>Manage your rentals</h2>
           <p>Register to manage your houses, tenants, rent dates, and payment updates. New landlord accounts start with a three-month trial.</p>
           <span class="choice-action">Continue as landlord <span aria-hidden="true">→</span></span>
         </a>
         <a class="choice tenant" href="tenant-register.html">
+          <img class="choice-image" src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=1200" alt="A family home" loading="lazy">
           <p class="choice-label">For tenants</p>
           <h2>View your tenancy</h2>
           <p>Register to check your rental details, upcoming rent date, reminders, and payment updates.</p>

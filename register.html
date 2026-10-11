@@ -31,36 +31,44 @@ input:focus,select:focus{border-color:#FF6A00}
 </style>
 </head>
 <body>
-<div class="topbar"><div class="logo"><b>Fed</b><span>nice</span><small>PRESENTING CONVENIENCE 0114462079</small></div><a style="color:#ddd;font-size:13px;text-decoration:none;border-bottom:2px solid #FF6A00" href="#" onclick="alert('Owner: 0114462079 / Fedinant27')">Already have an account? Log In</a></div>
+<div class="topbar"><div class="logo"><b>Fed</b><span>nice</span><small>PRESENTING CONVENIENCE 0114462079</small></div><a style="color:#ddd;font-size:13px;text-decoration:none;border-bottom:2px solid #FF6A00" href="login.html">Already have an account? Log In</a></div>
 <div class="main">
 <div class="left">
 <div class="logo" style="margin-bottom:10px"><b>Fed</b><span>nice</span></div>
 <h1>Kenyan Rental Properties</h1>
 <p class="sub">Mabati Houses • Bedsitters • Apartments • Landlord Focused 🇰🇪</p>
 <div class="slideshow" id="slideshow">
-<div class="slide active"><img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=80" alt="Mabati"><div class="badge"><b>1/3 • Mabati House</b><br>Kiambu - Chege Wafula</div></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=900&q=80" alt="Bedsitter"><div class="badge"><b>2/3 • Bedsitter</b><br>Nairobi CBD - Akinyi Otieno</div></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80" alt="Apartment"><div class="badge"><b>3/3 • 1-Bed Apartment</b><br>Eldoret - Kipchoge Arap</div></div>
+<div class="slide active"><img src="https://www.pazuriproperties.com/photos/aq1.jpg" alt="Queens Apartments rental building on Kenyatta Road in Kenya"><div class="badge"><b>1/3 • Apartment rentals</b><br>Kenyatta Road · Photo: <a href="https://www.pazuriproperties.com/Kenyatta.php?braxton=Kenyatta+road" target="_blank" rel="noopener">Pazuri Properties</a></div></div>
+<div class="slide"><img src="https://biznakenya.com/wp-content/uploads/2020/07/Mabati-Rentals-in-Kenya-696x665.jpg" alt="Rows of mabati rental units in Kenya"><div class="badge"><b>2/3 • Mabati rental homes</b><br>Affordable rental housing · Photo: <a href="https://biznakenya.com/slum-landlords-in-kenya/" target="_blank" rel="noopener">Bizna Kenya</a></div></div>
+<div class="slide"><img src="https://propscout.co.ke/storage/properties/files/1415/webp/zvop1-1-and-2-bedroom-for-rent-along-naivasha-road.webp" alt="Apartment building on Naivasha Road in Nairobi"><div class="badge"><b>3/3 • Apartment homes</b><br>Naivasha Road, Nairobi · Photo: <a href="https://propscout.co.ke/properties/1415/1-and-2-bedroom-for-rent-along-naivasha-road" target="_blank" rel="noopener">PropScout</a></div></div>
 </div>
 <div class="dots"><div class="dot active" onclick="goSlide(0)"></div><div class="dot" onclick="goSlide(1)"></div><div class="dot" onclick="goSlide(2)"></div></div>
-<p class="sub" style="text-align:center;margin-top:12px">Explore trusted rental properties across Kenya • 47 Counties • Photos updated weekly</p>
+<p class="sub" style="text-align:center;margin-top:12px">Mabati rentals, bedsitters, and apartment blocks • Photo sources linked above</p>
 </div>
 <div class="right">
 <h2>Create Landlord Account</h2><p style="color:#FF6A00;font-size:12px;margin:6px 0 16px;font-weight:600">Join Fednice Rental System • All 47 Counties + 290 Constituencies</p>
 <form id="regForm" onsubmit="return handleRegister(event)">
 <label>Full Name</label><input id="fullName" required placeholder="e.g. Jane Wambui Kamau">
+<label>Email Address (for landlord login)</label><input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
 <label>ID Number</label><input id="idNo" required placeholder="e.g. 34567892" inputmode="numeric">
-<label>Phone</label><input id="phone" required placeholder="+254 7XX XXX XXX e.g. 0114462079">
+<label>Phone (for one-time activation SMS)</label><input id="phone" type="tel" autocomplete="tel" required placeholder="+254 7XX XXX XXX">
 <label>County (47 Counties)</label><select id="county" required onchange="loadConstituencies()"><option value="">Select County</option></select>
 <label>Constituency</label><select id="constituency" required><option value="">Select County First</option></select>
 <label>Property Name</label><input id="propertyName" required placeholder="e.g. Sunshine Apartments">
-<label>Password</label><div style="position:relative"><input id="password" type="password" required placeholder="Create strong password" oninput="checkStrength()"><span onclick="togglePw()" style="position:absolute;right:12px;top:11px;cursor:pointer">👁️</span></div>
+<label>Password</label><div style="position:relative"><input id="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Create strong password" oninput="checkStrength()"><span onclick="togglePw()" style="position:absolute;right:12px;top:11px;cursor:pointer">👁️</span></div>
 <div class="strength"><div id="strengthBar"></div></div>
 <div class="hint">⚠️ Strong: 8+ chars, UPPERCASE, number & symbol. Example: Fednice2025@</div>
-<div class="fee"><b style="color:#FF6A00">App Registration Fee</b><br>KSH 2500 — One-time fee<br><span style="color:#aaa">✅ Receipt via SMS & WhatsApp after payment</span></div>
+<div class="fee"><b style="color:#FF6A00">Three-Month Free Trial</b><br>KSh 1,000 after the trial to continue using the system<br><span style="color:#aaa">The first three months are free.</span></div>
 <div style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12px;color:#bbb"><input type="checkbox" required style="width:auto"><span>I agree to Terms & Privacy - Kenya Data Protection Act</span></div>
 <button class="btn" type="submit">Register Now →</button>
+<p id="registerMessage" role="status" aria-live="polite" style="margin-top:12px;color:#ffb47f;font-size:13px"></p>
 </form>
+<section id="activationStep" hidden style="margin-top:20px">
+<h3>Verify your phone</h3><p class="sub">Enter the one-time code sent by SMS. It activates your landlord account once.</p>
+<label for="activationCode">SMS activation code</label><input id="activationCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code">
+<button class="btn" id="verifyActivation" type="button">Verify & Create Account</button>
+<p id="activationMessage" role="status" aria-live="polite" style="margin-top:12px;color:#ffb47f;font-size:13px"></p>
+</section>
 </div>
 </div>
 <script>
@@ -134,13 +142,53 @@ function checkStrength(){
   const bar=document.getElementById('strengthBar');bar.style.width=score+'%';bar.style.background=score<50?'#ff4444':score<75?'orange':'#00ff88';
 }
 function togglePw(){const i=document.getElementById('password');i.type=i.type==='password'?'text':'password';}
+const FEDNICE_API_BASE = '';
+let pendingLandlord = null;
+let activationTicket = null;
+async function apiRequest(path, payload, idToken){
+  if(!FEDNICE_API_BASE) throw new Error('Landlord activation service has not been configured yet. Please contact Fednice Solutions.');
+  const response = await fetch(FEDNICE_API_BASE.replace(/\/$/, '') + path, {
+    method:'POST', headers:{'Content-Type':'application/json', ...(idToken ? {Authorization:'Bearer '+idToken} : {})}, body:JSON.stringify(payload)
+  });
+  const result = await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(result.error || 'The request could not be completed. Please try again.');
+  return result;
+}
 function handleRegister(e){
   e.preventDefault();
-  const data={fullName:fullName.value,phone:phone.value,county:county.value,constituency:constituency.value,propertyName:propertyName.value};
-  localStorage.setItem('fednice_user',JSON.stringify(data));
-  alert('✅ Registered! County: '+data.county+' | Constituency: '+data.constituency+' | Property: '+data.propertyName+' - Next KSH 2500 payment');
-  window.location.href='payment.html';return false;
+  const form=e.currentTarget;
+  pendingLandlord={fullName:document.getElementById('fullName').value.trim(),email:document.getElementById('email').value.trim(),idNo:document.getElementById('idNo').value.trim(),phone:document.getElementById('phone').value.trim(),county:countySelect.value,constituency:document.getElementById('constituency').value,propertyName:document.getElementById('propertyName').value.trim(),password:document.getElementById('password').value};
+  const button=form.querySelector('button[type="submit"]');
+  button.disabled=true; document.getElementById('registerMessage').textContent='Sending your one-time activation SMS…';
+  apiRequest('/api/activation/send',{phone:pendingLandlord.phone}).then(()=>{
+    form.hidden=true;document.getElementById('activationStep').hidden=false;document.getElementById('activationMessage').textContent='Code sent. It expires shortly and can only be used once.';
+  }).catch(error=>{document.getElementById('registerMessage').textContent=error.message;button.disabled=false;});
+  return false;
 }
-</script><script src="auth.js"></script>
+document.getElementById('verifyActivation').addEventListener('click',async function(){
+  const button=this, message=document.getElementById('activationMessage');button.disabled=true;message.textContent='Verifying code…';
+  try{
+    const verified=await apiRequest('/api/activation/verify',{phone:pendingLandlord.phone,code:document.getElementById('activationCode').value.trim()});
+    activationTicket=verified.activationTicket;
+    const credential=await firebase.auth().createUserWithEmailAndPassword(pendingLandlord.email,pendingLandlord.password);
+    const idToken=await credential.user.getIdToken();
+    const profile={...pendingLandlord};delete profile.password;
+    await apiRequest('/api/landlords/register',{profile,activationTicket},idToken);
+    message.textContent='Phone verified. Your landlord account is ready. Taking you to sign in…';
+    await firebase.auth().signOut();setTimeout(()=>window.location.href='login.html',900);
+  }catch(error){
+    if(error.code==='auth/email-already-in-use') message.textContent='That email already has an account. Use the landlord login page or reset its password.';
+    else message.textContent=error.message || 'Could not activate the account. Check the code and try again.';
+    button.disabled=false;
+  }
+});
+</script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
 </body>
 </html>
+
+
+
