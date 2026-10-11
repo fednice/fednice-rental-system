@@ -2,29 +2,34 @@
 <html>
 <head>
 <title>FEDNICE - Secure Checkout</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body{margin:0; min-height:100vh; background:#0d0d0d; display:flex; justify-content:center; align-items:center; font-family:Arial; position:relative;}
-.nav{position:absolute; top:0; left:0; right:0; padding:15px 25px; display:flex; justify-content:space-between; align-items:center; z-index:2; background:rgba(0,0,0,0.5); border-bottom:1px solid #222;}
+body{margin:0; min-height:100vh; font-family:Arial; display:flex; justify-content:center; align-items:center; position:relative; background:#000;}
+body::before{content:''; position:fixed; inset:0; background:url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=1200') center/cover no-repeat; filter:brightness(0.3) blur(1px);}
+body::after{content:''; position:fixed; inset:0; background:rgba(10,10,10,0.75);}
+.nav{position:fixed; top:0; left:0; right:0; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; z-index:10; background:rgba(0,0,0,0.7); border-bottom:1px solid #222; backdrop-filter:blur(10px);}
 .logo-area{display:flex; align-items:center; gap:10px;}
-.logo-area img{height:42px; width:auto; object-fit:contain; border-radius:6px;}
-.logo-text{color:white; font-weight:bold; font-size:18px; line-height:1.1;}
-.logo-text span{color:#888; font-size:11px; display:block; letter-spacing:2px;}
-.card{position:relative; z-index:2; width:90%; max-width:480px; background:#1e1e1e; border:1px solid rgba(255,107,43,0.3); border-radius:20px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,0.6); margin-top:70px;}
-h2{color:white; margin:10px 0 5px; font-size:24px;} p.sub{color:#aaa; font-size:13px; margin-bottom:18px;}
-.box{background:#2a1f1a; border:1px solid #ff6b2b; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center;}
-.masked{color:white; font-weight:bold; font-size:18px;}
+.logo-area img{height:44px; width:auto; background:white; padding:3px; border-radius:8px;}
+.logo-text{color:white; font-weight:bold; font-size:17px;} .logo-text b{color:#ff6b2b;}
+.card{position:relative; z-index:5; width:92%; max-width:480px; background:rgba(28,28,28,0.95); border:1px solid #ff6b2b55; border-radius:18px; padding:26px; margin-top:80px; margin-bottom:90px; box-shadow:0 20px 60px rgba(0,0,0,0.8);}
+h2{color:white; margin:0 0 6px; font-size:22px;} .sub{color:#aaa; font-size:13px; margin-bottom:16px;}
+.box{background:#2a1f18; border:1px solid #ff6b2b; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center;}
+.masked{color:white; font-weight:bold; font-size:18px; letter-spacing:1px;}
 .btn-show{background:#ff6b2b; border:none; color:white; padding:7px 16px; border-radius:20px; cursor:pointer; font-weight:bold;}
 label{color:#ddd; font-size:13px; margin-top:14px; display:block;}
-input{width:100%; padding:12px; margin-top:6px; background:#222; border:1px solid #444; border-radius:10px; color:white; box-sizing:border-box;}
+input{width:100%; padding:13px; margin-top:6px; background:#222; border:1px solid #444; border-radius:10px; color:white; box-sizing:border-box;}
+input.invalid{border-color:red;}
 .btn-pay{width:100%; margin-top:18px; background:#ff6b2b; color:white; border:none; padding:14px; border-radius:12px; font-size:16px; font-weight:bold; cursor:pointer;}
-.trust{display:flex; gap:15px; justify-content:center; margin-top:16px; font-size:11px; color:#ffb28a;}
+.footer{position:fixed; bottom:0; left:0; right:0; z-index:10; background:#000; border-top:1px solid #222; padding:10px; text-align:center; color:#aaa; font-size:12px;}
+.footer b{color:#ff6b2b;}
 </style>
 </head>
 <body>
+
 <div class="nav">
 <div class="logo-area">
-<img src="logo.png" alt="FEDNICE Logo" onerror="this.style.display='none'">
-<div class="logo-text">FEDNICE<span>REAL ESTATE</span></div>
+<img src="logo.png" alt="FEDNICE" onerror="this.src='https://via.placeholder.com/120x40?text=FEDNICE'">
+<div class="logo-text">FEDNICE <b>REAL ESTATE</b></div>
 </div>
 <div style="border:1px solid #ff6b2b; padding:6px 14px; border-radius:20px; color:#ff9a6b; font-size:12px;">🔒 Secure Checkout</div>
 </div>
@@ -32,20 +37,61 @@ input{width:100%; padding:12px; margin-top:6px; background:#222; border:1px soli
 <div class="card">
 <h2>Pay KSH 2,500 to activate account</h2>
 <p class="sub">Complete payment via M-Pesa to activate your landlord account and start listing properties</p>
+
 <div class="box">
-<div><div style="font-size:12px; color:#aaa;">M-Pesa Send Money details</div><div id="masked" class="masked">07** ***437</div><div id="full" class="masked" style="display:none; color:#4ade80;">0797477437</div></div>
-<button class="btn-show" onclick="showNum()">Show</button>
+<div><div style="font-size:12px; color:#aaa;">M-Pesa Send Money details</div><div id="masked" class="masked">07** ***437</div><div id="full" class="masked" style="display:none; color:#4ade80;">0797477437 - FEDNICE</div></div>
+<button class="btn-show" onclick="toggleNum()" id="showBtn">Show</button>
 </div>
+
 <div style="display:flex; justify-content:space-between; color:#ccc; font-size:14px; margin-top:14px; border-top:1px dashed #444; padding-top:12px;"><span>Amount</span><span style="color:white; font-weight:bold;">KSH 2,500</span></div>
-<label>M-Pesa Transaction Code</label><input id="code" placeholder="e.g. QWX7T9Z3PL">
-<label>Your M-Pesa Phone Number</label><input id="phone" placeholder="+254 7•• ••• •••">
+
+<label>M-Pesa Transaction Code *</label>
+<input id="code" placeholder="e.g. QJD8K9H2LM (10 chars)" maxlength="10" style="text-transform:uppercase">
+<small id="codeErr" style="color:#ff6b6b; display:none;">Invalid code - Must be 10 letters/numbers like QWX7T9Z3PL</small>
+
+<label>Your M-Pesa Phone Number *</label>
+<input id="phone" placeholder="07XXXXXXXX or +2547XXXXXXXX">
+
 <button class="btn-pay" onclick="pay()">🔒 Pay KSH 2,500 Now</button>
-<div class="trust"><span>🛡️ SSL Secured</span><span>💬 Receipt via SMS</span><span>🔒 Secure & Encrypted</span></div>
+<div style="display:flex; gap:12px; justify-content:center; margin-top:14px; font-size:11px; color:#ffb28a;"><span>🛡️ SSL Secured</span><span>💬 Receipt via SMS</span></div>
+</div>
+
+<div class="footer">
+For any assistance call <b>0797477437</b> | Support: support@fednice.co.ke<br>
+Powered by M-Pesa • Licensed by CBK • © 2025 FEDNICE Real Estate
 </div>
 
 <script>
-function showNum(){document.getElementById('masked').style.display='none'; document.getElementById('full').style.display='block';}
-function pay(){ const c=document.getElementById('code').value.trim(); if(c.length<6){alert('Enter M-Pesa code'); return;} let u=JSON.parse(localStorage.getItem('fednice_user'))||{}; u.paymentCode=c; u.paymentStatus='pending'; localStorage.setItem('fednice_user', JSON.stringify(u)); window.location.href='dashboard.html';}
+let shown=false;
+function toggleNum(){
+  shown=!shown;
+  document.getElementById('masked').style.display=shown?'none':'block';
+  document.getElementById('full').style.display=shown?'block':'none';
+  document.getElementById('showBtn').innerText=shown?'Hide':'Show';
+}
+function pay(){
+  const code=document.getElementById('code').value.trim().toUpperCase();
+  const phone=document.getElementById('phone').value.trim();
+  const codePattern=/^[A-Z0-9]{10}$/; // Real M-Pesa is 10 chars
+  const phonePattern=/^(07\d{8}|01\d{8}|\+2547\d{8}|\+2541\d{8})$/;
+
+  if(!codePattern.test(code)){
+    document.getElementById('code').classList.add('invalid');
+    document.getElementById('codeErr').style.display='block';
+    alert('❌ Invalid M-Pesa Code!\n\nReal M-Pesa code is 10 letters+numbers, e.g. QJD8K9H2LM\nRandom letters like ASDFDSF will NOT work.');
+    return;
+  }
+  if(!phonePattern.test(phone)){
+    alert('❌ Enter valid Safaricom number: 07XXXXXXXX or +2547XXXXXXXX');
+    return;
+  }
+
+  let u=JSON.parse(localStorage.getItem('fednice_user'))||{};
+  u.paymentCode=code; u.phoneUsed=phone; u.paymentStatus='pending_verification'; u.paidAt=new Date().toISOString();
+  localStorage.setItem('fednice_user', JSON.stringify(u));
+  alert('✅ Code accepted! Payment under verification.\nYou will receive SMS.\n\nFor help call 0797477437');
+  window.location.href='dashboard.html';
+}
 </script>
 </body>
 </html>
