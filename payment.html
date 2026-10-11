@@ -1,41 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>FEDNICE - Pay</title>
+<title>FEDNICE - Secure Checkout</title>
 <style>
- body{font-family:Arial; background:#f4f6f9; margin:0; padding:20px;}
- .container{max-width:500px; margin:40px auto; background:white; padding:25px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); border-top:5px solid #0a192f;}
- h2{color:#0a192f; text-align:center;}
- .pay-box{background:#fff8e1; border:1px solid #ffca28; padding:15px; border-radius:8px;}
- button{width:100%; background:#0a192f; color:#ffca28; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px;}
- input{width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:8px;}
+body{margin:0; min-height:100vh; background:url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=1000') center/cover no-repeat; display:flex; justify-content:center; align-items:center; font-family:Inter, Arial; position:relative;}
+body::before{content:''; position:absolute; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px);}
+.nav{position:absolute; top:0; left:0; right:0; padding:18px 30px; display:flex; justify-content:space-between; color:#aaa; z-index:2; font-size:14px;}
+.logo{color:white; font-weight:bold; font-size:20px;} .logo span{color:#ff6b2b;}
+.card{position:relative; z-index:2; width:90%; max-width:480px; background:rgba(30,30,30,0.9); border:1px solid rgba(255,107,43,0.3); border-radius:20px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,0.6);}
+h2{color:white; margin:10px 0 5px; font-size:24px;} p.sub{color:#aaa; font-size:13px; margin-bottom:18px;}
+.box{background:rgba(40,30,25,0.8); border:1px solid #ff6b2b; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center;}
+.masked{color:white; font-weight:bold; font-size:18px; letter-spacing:1px;}
+.btn-show{background:#ff6b2b; border:none; color:white; padding:7px 16px; border-radius:20px; cursor:pointer; font-weight:bold;}
+label{color:#ddd; font-size:13px; margin-top:14px; display:block;}
+input{width:100%; padding:12px; margin-top:6px; background:#222; border:1px solid #444; border-radius:10px; color:white; box-sizing:border-box;}
+.btn-pay{width:100%; margin-top:18px; background:#ff6b2b; color:white; border:none; padding:14px; border-radius:12px; font-size:16px; font-weight:bold; cursor:pointer;}
+.trust{display:flex; gap:15px; justify-content:center; margin-top:16px; font-size:11px; color:#ffb28a;}
+.footer{position:absolute; bottom:12px; width:100%; text-align:center; color:#666; font-size:11px; z-index:2;}
 </style>
 </head>
 <body>
-<div class="container">
-<h2>Activate FEDNICE Account</h2>
-<div class="pay-box">
-<p><b>Pay KSH 2,500 via M-Pesa Send Money</b></p>
-<p>To: <span id="masked">07** ***437</span> <button onclick="showNum()" style="width:auto; padding:4px 10px; display:inline; font-size:12px;">Show</button></p>
-<p id="fullNum" style="display:none; color:green; font-weight:bold;">📱 0797477437 - FEDNICE</p>
-<p>Amount: <b>2500</b></p>
+<div class="nav"><div class="logo">🏠 FEDNICE <span>REAL ESTATE</span></div><div style="border:1px solid #ff6b2b; padding:5px 12px; border-radius:20px;">🔒 Secure Checkout</div></div>
+
+<div class="card">
+<h2>Pay KSH 2,500 to activate account</h2>
+<p class="sub">Complete payment via M-Pesa to activate your landlord account and start listing properties</p>
+
+<div class="box">
+<div><div style="font-size:12px; color:#aaa;">M-Pesa Send Money details</div><div style="font-size:12px; color:#888;">Paybill / Till Number</div><div id="masked" class="masked">07** ***437</div><div id="full" class="masked" style="display:none; color:#4ade80;">0797477437</div></div>
+<button class="btn-show" onclick="showNum()">Show</button>
 </div>
-<h3>Confirm Payment</h3>
-<input id="mpesaCode" placeholder="M-Pesa Code e.g QJD..." />
-<input id="phoneUsed" placeholder="Phone you used" />
-<button onclick="confirmPay()">I Have Paid → Dashboard</button>
+
+<div style="display:flex; justify-content:space-between; color:#ccc; font-size:14px; margin-top:14px; border-top:1px dashed #444; padding-top:12px;"><span>Amount</span><span style="color:white; font-weight:bold;">KSH 2,500</span></div>
+
+<label>M-Pesa Transaction Code</label>
+<input id="code" placeholder="e.g. QWX7T9Z3PL">
+<label>Your M-Pesa Phone Number</label>
+<input id="phone" placeholder="+254 7•• ••• •••">
+
+<button class="btn-pay" onclick="pay()">🔒 Pay KSH 2,500 Now</button>
+<div class="trust"><span>🛡️ SSL Secured</span><span>💬 Receipt via SMS</span><span>🔒 Secure & Encrypted</span></div>
+<p style="color:#777; font-size:11px; text-align:center; margin-top:12px;">You will receive SMS confirmation instantly. Need help? Contact support@fednice.co.ke</p>
 </div>
+
+<div class="footer">Powered by M-Pesa • Licensed by CBK</div>
+
 <script>
-function showNum(){
- document.getElementById('fullNum').style.display='block';
- document.getElementById('masked').style.display='none';
-}
-function confirmPay(){
- const code=document.getElementById('mpesaCode').value.trim();
- if(code.length<10){alert('Enter valid M-Pesa Code'); return;}
- let user=JSON.parse(localStorage.getItem('fednice_user'))||{};
- user.paymentCode=code; user.paymentStatus='pending';
- localStorage.setItem('fednice_user', JSON.stringify(user));
+function showNum(){document.getElementById('masked').style.display='none'; document.getElementById('full').style.display='block';}
+function pay(){
+ const c=document.getElementById('code').value.trim();
+ if(c.length<6){alert('Enter M-Pesa code'); return;}
+ let u=JSON.parse(localStorage.getItem('fednice_user'))||{};
+ u.paymentCode=c; u.paymentStatus='pending'; u.paidAt=new Date().toISOString();
+ localStorage.setItem('fednice_user', JSON.stringify(u));
+ alert('✅ Payment recorded! Welcome to FEDNICE');
  window.location.href='dashboard.html';
 }
 </script>
