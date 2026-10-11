@@ -1,54 +1,17 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0a4d2e">
-  <title>FEDNICE | Admin</title>
-  <style>
-    :root{font-family:Inter,"Segoe UI",Arial,sans-serif;color:#183326;background:#f2f6f2}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(135deg,#0a4d2e 0 35%,#eef4ef 35%);padding:32px 18px 0}.wrap{width:min(760px,100%);margin:0 auto}.brand{color:#fff;font-size:1.5rem;font-weight:850;letter-spacing:.1em;margin:0 0 25px}.brand span{color:#ff9800}.card{background:#fff;border:1px solid #e1e9e2;border-radius:18px;padding:clamp(22px,5vw,38px);box-shadow:0 18px 60px #062b1c30}.eyebrow{color:#62806d;text-transform:uppercase;letter-spacing:.12em;font-size:.75rem;font-weight:750}h1{margin:8px 0;font-size:clamp(1.6rem,4vw,2.2rem)}.hint{color:#617167;line-height:1.5}.btn{border:0;border-radius:10px;background:#0a4d2e;color:white;padding:13px 18px;font-weight:800;cursor:pointer}.btn:hover{background:#073c23}.btn:disabled{opacity:.6;cursor:wait}input{font:inherit}.login input{display:block;width:100%;margin:10px 0;padding:13px;border:1px solid #cbd9cf;border-radius:9px}.codebox{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:18px 0;padding:18px 20px;background:#f3f7f3;border:1px dashed #b7cbbc;border-radius:12px}.code{font-size:clamp(1.7rem,7vw,2.6rem);font-weight:850;letter-spacing:.16em;color:#0a4d2e;overflow-wrap:anywhere}.status{min-height:1.5em;color:#9a4d00}.list{margin-top:26px;border-top:1px solid #e6ece7}.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #e6ece7}.row-code{font-family:ui-monospace,monospace;font-size:1rem;font-weight:750;letter-spacing:.08em}.pill{font-size:.72rem;font-weight:800;border-radius:999px;padding:6px 9px;background:#e9f4e9;color:#286137}.pill.burned{background:#fff0e5;color:#9b4d00}.row time{display:block;color:#77857a;font-size:.75rem;margin-top:4px}.footer{color:#fff;text-align:center;padding:25px 8px 8px;font-size:.9rem}.footer a{color:#fff}.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:20px}.tools input{max-width:100%}[hidden]{display:none!important}@media(max-width:520px){body{padding:22px 13px 0}.codebox{align-items:flex-start;flex-direction:column}.row{align-items:flex-start}}
-  </style>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-  <script src="firebase.js"></script>
-</head>
-<body>
-  <main class="wrap">
-    <p class="brand">FED<span>NICE</span></p>
-    <section id="login" class="card login" aria-labelledby="title">
-      <p class="eyebrow">Admin sign-in</p><h1 id="title">FEDNICE code manager</h1>
-      <p class="hint">Sign in with the authorized FEDNICE administrator account.</p>
-      <form id="login-form"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required><button class="btn" type="submit">Sign in</button></form>
-      <p id="message" class="status" role="status" aria-live="polite"></p>
-    </section>
-    <section id="panel" class="card" hidden aria-labelledby="panel-title">
-      <p class="eyebrow">Access management</p><h1 id="panel-title">One-time rental access codes</h1>
-      <p class="hint">Codes are single-use. House data can be imported from a CSV file stored on your device.</p>
-      <button class="btn" id="generate" type="button">GENERATE NEW CODE</button>
-      <div id="generated" class="codebox" hidden><strong id="new-code" class="code"></strong><button class="btn" id="copy" type="button">Copy to WhatsApp</button></div>
-      <p id="panel-message" class="status" role="status" aria-live="polite"></p>
-      <div class="tools"><label for="houses-file"><b>Import house data (CSV)</b></label><input id="houses-file" type="file" accept=".csv,text/csv"><button class="btn" id="import-houses" type="button">Import houses</button></div>
-      <div class="list"><h2>Last 20 codes</h2><div id="codes" aria-live="polite">Loading codes…</div></div>
-      <button class="btn" id="signout" type="button" style="margin-top:20px">Sign out</button>
-    </section>
-    <footer class="footer">For any assistance call <a href="tel:0797477437">0797477437</a> or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></footer>
-  </main>
-  <script>
-    const db=window.firebaseDb,auth=window.firebaseAuth;
-    const adminEmail='fednicesolutions@gmail.com';
-    const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let latestCode='';let stopCodes=null;
-    const login=document.getElementById('login'),panel=document.getElementById('panel'),message=document.getElementById('message'),list=document.getElementById('codes');
-    function makeCode(){const bytes=new Uint8Array(6);crypto.getRandomValues(bytes);return Array.from(bytes,b=>alphabet[b%alphabet.length]).join('');}
-    function timestamp(value){if(!value)return '';const date=value.toDate?value.toDate():new Date(value);return Number.isNaN(date.getTime())?'':date.toLocaleString();}
-    function renderCodes(snapshot){if(snapshot.empty){list.textContent='No codes yet.';return;}list.innerHTML='';snapshot.forEach(doc=>{const data=doc.data(),row=document.createElement('div'),details=document.createElement('div'),code=document.createElement('span'),badge=document.createElement('span');row.className='row';code.className='row-code';code.textContent=data.code||doc.id;details.append(code);const when=timestamp(data.createdAt);if(when){const time=document.createElement('time');time.textContent=when;details.append(time);}badge.className='pill'+(data.burned?' burned':'');badge.textContent=data.burned?'BURNED':'ACTIVE';row.append(details,badge);list.append(row);});}
-    function startCodes(){if(stopCodes)stopCodes();stopCodes=db.collection('codeHistory').orderBy('createdAt','desc').limit(20).onSnapshot(renderCodes,()=>{list.textContent='Could not load code history. Check Firestore rules.';});}
-    auth.onAuthStateChanged(user=>{if(user&&user.email===adminEmail){login.hidden=true;panel.hidden=false;startCodes();}else{if(user)auth.signOut();if(stopCodes){stopCodes();stopCodes=null;}panel.hidden=true;login.hidden=false;}});
-    document.getElementById('login-form').addEventListener('submit',async event=>{event.preventDefault();message.textContent='Signing in…';try{await auth.signInWithEmailAndPassword(document.getElementById('email').value.trim(),document.getElementById('password').value);message.textContent='';}catch(error){message.textContent='Sign-in failed. Check the administrator email and password.';}});
-    document.getElementById('generate').addEventListener('click',async event=>{const button=event.currentTarget,code=makeCode();button.disabled=true;document.getElementById('panel-message').textContent='Generating…';try{const batch=db.batch(),createdAt=firebase.firestore.FieldValue.serverTimestamp();batch.set(db.collection('codes').doc(code),{code,used:false,burned:false,createdAt});batch.set(db.collection('codeHistory').doc(code),{code,burned:false,createdAt});await batch.commit();latestCode=code;document.getElementById('new-code').textContent=code;document.getElementById('generated').hidden=false;document.getElementById('panel-message').textContent='Code is ready to share.';}catch(error){document.getElementById('panel-message').textContent='Could not create code. Check the Firestore rules.';console.error(error);}finally{button.disabled=false;}});
-    document.getElementById('copy').addEventListener('click',async()=>{if(!latestCode)return;const text=`FEDNICE Rental Access Code: ${latestCode}\nUse once at your site. Code burns after use.\nHelp: 0797477437`;try{await navigator.clipboard.writeText(text);document.getElementById('panel-message').textContent='WhatsApp message copied.';}catch(error){document.getElementById('panel-message').textContent='Clipboard access is unavailable in this browser.';}});
-    document.getElementById('import-houses').addEventListener('click',async event=>{const button=event.currentTarget,file=document.getElementById('houses-file').files[0];if(!file){document.getElementById('panel-message').textContent='Choose a CSV file first.';return;}button.disabled=true;try{const rows=parseCsv(await file.text());if(!rows.length)throw new Error('CSV has no house records.');for(let offset=0;offset<rows.length;offset+=450){const batch=db.batch();rows.slice(offset,offset+450).forEach(row=>batch.set(db.collection('houses').doc(row.houseNo),row));await batch.commit();}document.getElementById('panel-message').textContent=`Imported ${rows.length} houses.`;}catch(error){document.getElementById('panel-message').textContent=`Import failed: ${error.message}`;}finally{button.disabled=false;}});
-    function parseCsv(text){const lines=text.trim().split(/\r?\n/);if(lines.length<2)throw new Error('CSV has no data rows.');const headers=lines.shift().split(',').map(value=>value.trim().toLowerCase());return lines.map((line,index)=>{const values=line.split(',');if(values.length!==headers.length)throw new Error(`Invalid CSV row ${index+2}.`);const row=Object.fromEntries(headers.map((header,i)=>[header,values[i].trim()]));const houseNo=row.houseno||row.house||row.house_no;if(!houseNo)throw new Error(`HouseNo missing on row ${index+2}.`);return{houseNo,monthlyRent:Number(row.monthlyrent||row.monthly_rent)||0,tenantName:row.tenantname||row.tenant_name||'',status:row.status||'Vacant'};});}
-    document.getElementById('signout').addEventListener('click',()=>auth.signOut());
-  </script>
-</body>
-</html>
+<!DOCTYPE html><html><head><title>FEDNICE Admin</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
+<style>body{background:#111; color:white; font-family:Arial; padding:20px;} button{background:#ff6b2b; border:none; color:white; padding:12px 18px; border-radius:10px; font-weight:bold; cursor:pointer;}.code{font-size:20px; background:#222; padding:14px; border-radius:10px; border:1px solid #ff6b2b; margin:12px 0;}.footer{margin-top:30px; color:#888; font-size:12px; text-align:center; border-top:1px solid #333; padding-top:10px;}</style>
+</head><body>
+<h2>🔑 FEDNICE Admin - Generate One-Time Codes</h2>
+<p>Confirm M-Pesa 2500 on 0797477437, then generate code and send to customer.</p>
+<button onclick="gen()">+ Generate New Code</button>
+<div id="out"></div>
+<h3>Last 20 Codes</h3><div id="list">Loading...</div>
+<div class="footer">For any assistance call <b style="color:#ff6b2b;">0797477437</b> or contact <b style="color:#ff6b2b;">fednicesolutions@gmail.com</b></div>
+<script>
+function makeCode(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c='FDN-'; for(let i=0;i<4;i++)c+=s[Math.floor(Math.random()*s.length)]; c+='-'; for(let i=0;i<4;i++)c+=s[Math.floor(Math.random()*s.length)]; return c;}
+async function gen(){const code=makeCode(); await db.collection('codes').add({code, used:false, createdAt:new Date().toISOString()}); document.getElementById('out').innerHTML=`<div class=code>${code} <button onclick="navigator.clipboard.writeText('${code}')">Copy</button> <a href="https://wa.me/?text=Your%20FEDNICE%20code%20is%20${code}.%20Enter%20at%20fednice.github.io/fednice-rental-system/payment.html" target="_blank" style="color:#4ade80; margin-left:10px;">WhatsApp</a></div>`; load();}
+async function load(){const snap=await db.collection('codes').orderBy('createdAt','desc').limit(20).get(); let h=''; snap.forEach(d=>{const x=d.data(); h+=`<div style="padding:8px; border-bottom:1px solid #333;">${x.code} — ${x.used?'🔴 USED by '+x.usedBy+' on '+x.usedAt:'🟢 UNUSED'}</div>`}); document.getElementById('list').innerHTML=h||'No codes yet';} load();
+</script></body></html>
