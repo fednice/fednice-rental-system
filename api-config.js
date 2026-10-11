@@ -1,0 +1,3 @@
+// Public API endpoint only. Never put SMS credentials, service-account keys, or private tokens here.
+// Set this to the deployed HTTPS URL for the landlord activation API before publishing.
+window.FEDNICE_API_BASE = '';

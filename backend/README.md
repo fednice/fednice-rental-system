@@ -14,9 +14,9 @@ This separate Node service sends and checks one-time activation SMS codes. It us
    - `AT_API_KEY`: Africa's Talking API key.
    - `AT_SENDER_ID`: optional approved sender ID.
    - `PORT`: supplied by most hosts; defaults to 3000 locally.
-4. Replace the empty `FEDNICE_API_BASE` in `register.html` with the deployed HTTPS API base URL.
+4. Set `window.FEDNICE_API_BASE` in the root `api-config.js` to the deployed HTTPS API base URL.
 5. Enable Email/Password in Firebase Authentication and add the GitHub Pages domain under Authorized domains.
-6. Publish the repository's `firestore.rules` in the existing Firebase project's Firestore Rules tab. Do not rely on the old open test rules for real accounts.
+6. Review `firestore.rules` before applying it to the existing Firebase project. It closes public browser access, so the legacy `admin.html` and `payment.html` screens that use the public `codes` collection will stop working under these rules. Migrate or remove those legacy flows first; do not paste the rules into Firebase blindly.
 
 The API keeps OTP hashes, five-minute expiry, a one-minute resend delay, and a five-attempt limit in Firestore. It never stores the password. The activation ticket is short-lived and consumed atomically when creating the landlord profile. Trial dates are recorded as 90 days from account activation. The KSh 1,000 charge is not collected automatically by this code; payment integration is a separate step.
 

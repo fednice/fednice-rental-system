@@ -15,11 +15,12 @@
 <div class="links"><a href="register.html">Create landlord account</a><a href="#" id="resetPassword">Forgot password?</a></div>
 </main>
 <footer class="footer">For any assistance call <b>0797477437</b> or contact <b>fednicesolutions@gmail.com</b></footer>
+<script src="api-config.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="firebase.js"></script>
 <script>
-const FEDNICE_API_BASE = '';
+const FEDNICE_API_BASE = window.FEDNICE_API_BASE || '';
 const form=document.getElementById('loginForm'),message=document.getElementById('message'),button=document.getElementById('loginButton');
 form.addEventListener('submit',async event=>{
   event.preventDefault();button.disabled=true;message.textContent='Signing in…';
