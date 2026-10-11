@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'fednicesolutions@gmail.com'
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    function isAnonymousClient() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function hasActiveSession() {
+      return isAnonymousClient()
+        && exists(/databases/$(database)/documents/clientSessions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/clientSessions/$(request.auth.uid)).data.expiresAt > request.time;
+    }
+
+    match /codes/{code} {
+      allow get: if isAnonymousClient() && resource.data.code == code && resource.data.used == false;
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.code == code
+        && request.resource.data.used == false
+        && request.resource.data.burned == false
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAnonymousClient()
+        && resource.data.used == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'burned', 'burnedAt', 'usedByUid'])
+        && request.resource.data.used == true
+        && request.resource.data.burned == true
+        && request.resource.data.usedByUid == request.auth.uid
+        && request.resource.data.burnedAt == request.time
+        && getAfter(/databases/$(database)/documents/clientSessions/$(request.auth.uid)).data.code == code;
+      allow delete: if isAnonymousClient()
+        && resource.data.used == true
+        && resource.data.usedByUid == request.auth.uid;
+    }
+
+    match /codeHistory/{code} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.code == code
+        && request.resource.data.burned == false
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAnonymousClient()
+        && resource.data.burned == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['burned', 'burnedAt'])
+        && request.resource.data.burned == true
+        && request.resource.data.burnedAt == request.time
+        && getAfter(/databases/$(database)/documents/codes/$(code)).data.usedByUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /clientSessions/{uid} {
+      allow get: if isAdmin() || (isAnonymousClient() && request.auth.uid == uid && resource.data.expiresAt > request.time);
+      allow list: if isAdmin();
+      allow create: if isAnonymousClient()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.code is string
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(1, 'h')
+        && getAfter(/databases/$(database)/documents/codes/$(request.resource.data.code)).data.usedByUid == uid;
+      allow update, delete: if false;
+    }
+
+    match /houses/{houseId} {
+      allow get, list: if isAdmin() || hasActiveSession();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

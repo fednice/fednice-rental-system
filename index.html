@@ -1,64 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FEDNICE - Powering Connections</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
-body{background:#080808;color:#fff}
-nav{position:fixed;top:0;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 5%;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);z-index:100;border-bottom:1px solid #222}
-.nav-logo img{height:65px}
-.btn-orange{background:#ff6b08;color:#fff;padding:12px 26px;border-radius:30px;font-weight:800;text-decoration:none}
-.hero{height:100vh;position:relative;overflow:hidden}
-.slide{position:absolute;inset:0;opacity:0;transition:opacity 1.8s}.slide.active{opacity:1}
-.slide img{width:100%;height:100%;object-fit:cover}
-.slide::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0.7) 100%)}
-.hero-text{position:absolute;top:55%;transform:translateY(-50%);left:6%;z-index:2;max-width:700px}
-.hero-text h1{font-size:62px;line-height:1.05;margin-bottom:15px;font-weight:900}
-.hero-text.sub{color:#1677ff;font-weight:700;margin-bottom:15px;font-size:18px}
-.hero-text p{color:#ccc;font-size:18px;line-height:1.6;margin-bottom:30px}
-.cta-row{display:flex;gap:15px;flex-wrap:wrap}
-.btn-blue{border:2px solid #1677ff;color:#1677ff;padding:15px 28px;border-radius:40px;font-weight:800;text-decoration:none}
-.dots{position:absolute;bottom:35px;left:6%;display:flex;gap:10px;z-index:3}
-.dot{width:12px;height:12px;border-radius:50%;background:#555;cursor:pointer}.dot.active{background:#ff6b08;width:32px;border-radius:10px}
-.whatsapp{position:fixed;bottom:25px;right:25px;background:#25D366;width:65px;height:65px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;text-decoration:none;z-index:200}
-footer{background:#000;padding:60px 6%;text-align:center;border-top:1px solid #1a1a1a}
-footer a{color:#ff6b08;text-decoration:none}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a4d2e">
+  <title>FEDNICE | Rental access</title>
+  <style>
+    :root{font-family:Inter,"Segoe UI",Arial,sans-serif;color:#173326;background:#0a4d2e;font-synthesis:none;text-rendering:optimizeLegibility}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:linear-gradient(135deg,rgba(5,49,29,.91),rgba(10,77,46,.82)),url("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=85&w=2000") center/cover fixed}.topbar{height:86px;padding:12px clamp(18px,6vw,84px);display:flex;align-items:center;border-bottom:1px solid #ffffff25}.topbar img{height:60px;max-width:190px;object-fit:contain}.main{width:min(1100px,calc(100% - 32px));margin:auto;padding:44px 0;flex:1;display:grid;place-items:center}.login,.dashboard{width:min(100%,560px);background:#fff;border-radius:20px;padding:clamp(25px,6vw,44px);box-shadow:0 24px 70px #00190e55}.eyebrow{margin:0 0 9px;color:#547562;font-size:.78rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase}h1{margin:0;color:#123c28;font-size:clamp(1.8rem,5vw,2.5rem);letter-spacing:-.04em}.intro{margin:11px 0 25px;color:#68786f;line-height:1.55}.field-label{display:block;margin:0 0 8px;font-size:.9rem;font-weight:750;color:#284535}.code-input{display:block;width:100%;height:58px;padding:0 16px;border:1px solid #cbd9cf;border-radius:11px;font:800 1.25rem ui-monospace,monospace;letter-spacing:.28em;text-align:center;text-transform:uppercase;color:#0a4d2e}.code-input:focus{outline:3px solid #0a4d2e22;border-color:#0a4d2e}.unlock{width:100%;margin-top:14px;border:0;border-radius:11px;padding:15px;background:#ff9800;color:#202519;font-weight:850;font-size:1rem;cursor:pointer}.unlock:hover{background:#f28d00}.unlock:disabled{opacity:.65;cursor:wait}.status{min-height:1.5em;margin:13px 0 0;color:#9b3527;font-size:.92rem}[hidden]{display:none!important}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:25px 0}.metric{padding:16px 13px;border:1px solid #e1e9e2;border-radius:12px;background:#f8faf8}.metric strong{display:block;font-size:1.45rem;color:#0a4d2e}.metric span{display:block;margin-top:5px;color:#718078;font-size:.78rem}.house-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:380px;overflow:auto}.house{padding:12px;border:1px solid #e4ebe5;border-radius:10px}.house-top{display:flex;justify-content:space-between;gap:8px;font-weight:750}.badge{font-size:.68rem;text-transform:uppercase;color:#637367}.badge.occupied{color:#25633a}.tenant{margin:7px 0 0;color:#6f7e73;font-size:.82rem}.error{padding:11px 13px;border-radius:9px;color:#7a2a20;background:#fff1ee;line-height:1.45}.foot{padding:18px 14px 22px;text-align:center;color:#fff;font-size:.88rem;background:#06371f99}.foot a{color:#fff}.brand-word{color:#0a4d2e;font-weight:850;letter-spacing:.08em}.brand-word span{color:#ff9800}.dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.logout{border:1px solid #cdd9cf;border-radius:8px;padding:9px 12px;background:#fff;color:#31533e;font-weight:700;cursor:pointer}.help{margin:13px 0 0;color:#718078;font-size:.8rem}
+    @media(max-width:480px){.topbar{height:72px}.topbar img{height:52px}.main{padding:26px 0}.metrics{gap:7px}.metric{padding:12px 9px}.metric strong{font-size:1.15rem}.metric span{font-size:.7rem}.house-list{grid-template-columns:1fr}}
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script src="firebase.js"></script>
 </head>
 <body>
-<nav>
-<a class="nav-logo" href="#"><img src="logo.png" alt="FEDNICE"></a>
-</nav>
-<div class="hero">
-<div class="slide active"><img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2000"></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2000"></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2000"></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2000"></div>
-<div class="hero-text">
-<div class="sub">FEDNICE • Powering Connections</div>
-<h1>Manage Your Rentals <br>From Your Phone</h1>
-<p>List, manage, and monitor your properties. Built for landlords in Kapsabet, Eldoret & Nairobi. Click below to open your rental system.</p>
-<div class="cta-row">
-<a href="register.html" style="text-decoration:none">
-  <button style="background:#FF6A00;color:#000;font-weight:800;padding:14px 24px;border:none;border-radius:12px;cursor:pointer">
-    Open Rental Manager →
-  </button>
-</a>
-<a href="https://wa.me/254114462079?text=Hi%20FEDNICE" class="btn-blue">WhatsApp 0114462079</a>
-</div>
-</div>
-<div class="dots"><div class="dot active" onclick="go(0)"></div><div class="dot" onclick="go(1)"></div><div class="dot" onclick="go(2)"></div><div class="dot" onclick="go(3)"></div></div>
-</div>
-<footer>
-<img src="logo.png" style="height:70px;margin-bottom:15px"><br>
-📞 <a href="tel:0114462079">0114462079</a> | 📧 <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a><br>
-</footer>
-<a class="whatsapp" href="https://wa.me/254114462079">💬</a>
-<script>
-let cur=0; const slides=document.querySelectorAll('.slide'); const dots=document.querySelectorAll('.dot');
-function go(n){slides[cur].classList.remove('active');dots[cur].classList.remove('active');cur=n;slides[cur].classList.add('active');dots[cur].classList.add('active');}
-setInterval(()=>go((cur+1)%slides.length),4000);
-</script>
+  <header class="topbar"><img src="logo.png" alt="FEDNICE Solutions"></header>
+  <main class="main">
+    <section id="login" class="login" aria-labelledby="title">
+      <p class="eyebrow">Secure rental access</p>
+      <h1 id="title">Welcome to your rental dashboard</h1>
+      <p class="intro">Enter the one-time access code provided by FEDNICE Solutions.</p>
+      <form id="unlock-form">
+        <label class="field-label" for="access-code">6-character access code</label>
+        <input class="code-input" id="access-code" name="code" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" maxlength="6" minlength="6" pattern="[A-HJ-NP-Z2-9]{6}" required aria-describedby="message">
+        <button class="unlock" id="unlock-button" type="submit">UNLOCK DASHBOARD</button>
+      </form>
+      <p id="message" class="status" role="status" aria-live="polite"></p>
+    </section>
+    <section id="dashboard" class="dashboard" aria-labelledby="dashboard-title" hidden>
+      <div class="dash-head"><div><p class="eyebrow">FEDNICE rentals</p><h1 id="dashboard-title">Rental dashboard</h1></div><button id="logout" class="logout" type="button">Close</button></div>
+      <p class="intro">Your houses and tenant overview.</p>
+      <p id="dashboard-error" class="error" role="alert" hidden></p>
+      <div class="metrics" aria-label="Rental summary">
+        <article class="metric"><strong id="houses-count">—</strong><span>Houses</span></article>
+        <article class="metric"><strong id="tenants-count">—</strong><span>Tenants</span></article>
+        <article class="metric"><strong>—</strong><span>Collected · not tracked</span></article>
+      </div>
+      <h2>Houses and tenants</h2>
+      <div id="house-list" class="house-list"></div>
+      <p class="help">Collected rent will appear when payment records are connected.</p>
+    </section>
+  </main>
+  <footer class="foot">For any assistance call <a href="tel:0797477437">0797477437</a> or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></footer>
+  <script>
+    const db=window.firebaseDb,auth=window.firebaseAuth;
+    const form=document.getElementById('unlock-form');
+    const input=document.getElementById('access-code');
+    const button=document.getElementById('unlock-button');
+    const message=document.getElementById('message');
+    const validCode=/^[A-HJ-NP-Z2-9]{6}$/;
+    auth.onAuthStateChanged(async user=>{if(!user||!user.isAnonymous)return;try{const session=await db.collection('clientSessions').doc(user.uid).get();if(session.exists){const remaining=session.data().expiresAt.toDate().getTime()-Date.now();if(remaining>0)showDashboard(remaining);else await auth.signOut();}}catch(error){/* A signed-in visitor without a redeemed code has no session. */}});
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const code=input.value.trim().toUpperCase();
+      if(!validCode.test(code)){message.textContent='Enter a valid 6-character code.';return;}
+      button.disabled=true;message.textContent='Checking code…';
+      try{
+        if(auth.currentUser)await auth.signOut();
+        await auth.signInAnonymously();
+        const uid=auth.currentUser.uid;
+        const docRef=db.collection('codes').doc(code);
+        const historyRef=db.collection('codeHistory').doc(code);
+        const sessionRef=db.collection('clientSessions').doc(uid);
+        await db.runTransaction(async transaction=>{
+          const doc=await transaction.get(docRef);
+          if(!doc.exists)throw new Error('INVALID');
+          const data=doc.data();
+          if(data.used===true||data.burned===true)throw new Error('USED');
+          const now=Date.now();
+          transaction.update(docRef,{used:true,burned:true,burnedAt:firebase.firestore.FieldValue.serverTimestamp(),usedByUid:uid});
+          transaction.update(historyRef,{burned:true,burnedAt:firebase.firestore.FieldValue.serverTimestamp()});
+          transaction.set(sessionRef,{uid,code,createdAt:firebase.firestore.FieldValue.serverTimestamp(),expiresAt:firebase.firestore.Timestamp.fromDate(new Date(now+60*60*1000))});
+        });
+        showDashboard(60*60*1000);
+        window.setTimeout(()=>docRef.delete().catch(error=>console.error('Code cleanup failed',error)),2000);
+      }catch(error){
+        if(error.message==='USED')message.textContent='🔥 Code already burned! Request new code';
+        else if(error.message==='INVALID')message.textContent='Invalid code';
+        else{message.textContent='Could not verify the code. Please check your connection and try again.';console.error(error);}
+      }finally{button.disabled=false;}
+    });
+    document.getElementById('logout').addEventListener('click',async()=>{await auth.signOut();document.getElementById('dashboard').hidden=true;document.getElementById('login').hidden=false;input.value='';message.textContent='';});
+    function showDashboard(sessionMs){document.getElementById('login').hidden=true;document.getElementById('dashboard').hidden=false;loadPortfolio();window.setTimeout(async()=>{await auth.signOut();document.getElementById('dashboard').hidden=true;document.getElementById('login').hidden=false;message.textContent='Access expired. Request a new code.';},sessionMs);}
+    async function loadPortfolio(){
+      try{
+        const snapshot=await db.collection('houses').get();
+        const rows=snapshot.docs.map(doc=>doc.data()).sort((a,b)=>String(a.houseNo).localeCompare(String(b.houseNo),undefined,{numeric:true}));
+        if(!rows.length)throw new Error('No house records yet. Ask FEDNICE to import the portfolio.');
+        const tenants=rows.filter(row=>row.status.trim().toLowerCase()==='occupied');
+        document.getElementById('houses-count').textContent=rows.length;
+        document.getElementById('tenants-count').textContent=tenants.length;
+        document.getElementById('house-list').innerHTML=rows.map(row=>`<article class="house"><div class="house-top"><span>${escapeHtml(row.houseNo)}</span><span class="badge ${row.status.toLowerCase()==='occupied'?'occupied':''}">${escapeHtml(row.status)}</span></div><p class="tenant">${row.tenantName?`Tenant: ${escapeHtml(row.tenantName)}`:'No tenant assigned'} · KSh ${row.monthlyRent.toLocaleString()}/month</p></article>`).join('');
+      }catch(error){const box=document.getElementById('dashboard-error');box.textContent=error.code==='permission-denied'?'Your access has expired. Request a new code.':error.message;box.hidden=false;}
+    }
+    function escapeHtml(value){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
+  </script>
 </body>
 </html>
