@@ -1,64 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FEDNICE - Powering Connections</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
-body{background:#080808;color:#fff}
-nav{position:fixed;top:0;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 5%;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);z-index:100;border-bottom:1px solid #222}
-.nav-logo img{height:65px}
-.btn-orange{background:#ff6b08;color:#fff;padding:12px 26px;border-radius:30px;font-weight:800;text-decoration:none}
-.hero{height:100vh;position:relative;overflow:hidden}
-.slide{position:absolute;inset:0;opacity:0;transition:opacity 1.8s}.slide.active{opacity:1}
-.slide img{width:100%;height:100%;object-fit:cover}
-.slide::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0.7) 100%)}
-.hero-text{position:absolute;top:55%;transform:translateY(-50%);left:6%;z-index:2;max-width:700px}
-.hero-text h1{font-size:62px;line-height:1.05;margin-bottom:15px;font-weight:900}
-.hero-text.sub{color:#1677ff;font-weight:700;margin-bottom:15px;font-size:18px}
-.hero-text p{color:#ccc;font-size:18px;line-height:1.6;margin-bottom:30px}
-.cta-row{display:flex;gap:15px;flex-wrap:wrap}
-.btn-blue{border:2px solid #1677ff;color:#1677ff;padding:15px 28px;border-radius:40px;font-weight:800;text-decoration:none}
-.dots{position:absolute;bottom:35px;left:6%;display:flex;gap:10px;z-index:3}
-.dot{width:12px;height:12px;border-radius:50%;background:#555;cursor:pointer}.dot.active{background:#ff6b08;width:32px;border-radius:10px}
-.whatsapp{position:fixed;bottom:25px;right:25px;background:#25D366;width:65px;height:65px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;text-decoration:none;z-index:200}
-footer{background:#000;padding:60px 6%;text-align:center;border-top:1px solid #1a1a1a}
-footer a{color:#ff6b08;text-decoration:none}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080808">
+  <meta name="description" content="FEDNICE rental management for landlords and tenants in Kenya.">
+  <title>FEDNICE Rental System</title>
+  <style>
+    :root { color-scheme: dark; --black: #080808; --orange: #ff6b08; --blue: #1677ff; --white: #fff; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 320px; background: var(--black); color: var(--white); font-family: "Segoe UI", Arial, sans-serif; }
+    a { color: inherit; }
+    .topbar { position: absolute; inset: 0 0 auto; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 14px clamp(20px, 6vw, 84px); background: linear-gradient(180deg, rgba(0,0,0,.55), transparent); }
+    .brand img { display: block; width: auto; height: 62px; max-width: min(48vw, 220px); object-fit: contain; }
+    .help-link { padding: 10px 16px; border: 1px solid rgba(255,255,255,.7); border-radius: 999px; text-decoration: none; font-weight: 700; }
+    .help-link:hover, .help-link:focus-visible { background: rgba(255,255,255,.14); }
+    .hero { position: relative; display: grid; min-height: min(760px, 100svh); min-height: max(620px, 100svh); align-items: center; overflow: hidden; isolation: isolate; }
+    .slides, .slide { position: absolute; inset: 0; z-index: -2; }
+    .slide { opacity: 0; transition: opacity 1.2s ease; }
+    .slide.active { opacity: 1; }
+    .slide img { width: 100%; height: 100%; object-fit: cover; }
+    .hero::after { position: absolute; inset: 0; z-index: -1; content: ""; background: linear-gradient(90deg, rgba(0,0,0,.9) 0%, rgba(0,0,0,.42) 60%, rgba(0,0,0,.72) 100%); }
+    .hero-content { width: min(760px, 88vw); margin: 68px 0 0 clamp(22px, 8vw, 116px); padding: 36px 0 92px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 20px; color: var(--blue); font-size: .88rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .eyebrow::before { width: 28px; height: 3px; background: var(--orange); content: ""; }
+    h1 { max-width: 720px; margin: 0 0 20px; font-size: clamp(2.55rem, 6.7vw, 5.1rem); line-height: 1.02; letter-spacing: -.04em; }
+    h1 span { color: var(--orange); }
+    .intro { max-width: 590px; margin: 0 0 30px; color: rgba(255,255,255,.88); font-size: clamp(1rem, 1.6vw, 1.18rem); line-height: 1.7; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+    .button { display: inline-flex; min-height: 52px; align-items: center; justify-content: center; gap: 10px; padding: 0 24px; border: 2px solid transparent; border-radius: 10px; font-size: 1rem; font-weight: 800; text-decoration: none; transition: transform .18s ease, background .18s ease; }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { background: var(--orange); color: #172319; }
+    .button-primary:hover, .button-primary:focus-visible { background: #ffad33; }
+    .button-secondary { border-color: var(--blue); background: transparent; color: var(--blue); }
+    .button-secondary:hover, .button-secondary:focus-visible { background: rgba(22,119,255,.12); }
+    .steps { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 34px; color: rgba(255,255,255,.8); font-size: .9rem; }
+    .steps span::before { margin-right: 8px; color: var(--orange); content: "✓"; font-weight: 900; }
+    .slide-controls { position: absolute; right: clamp(22px, 8vw, 116px); bottom: 34px; left: clamp(22px, 8vw, 116px); display: flex; align-items: center; gap: 9px; }
+    .dot { width: 10px; height: 10px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.55); cursor: pointer; }
+    .dot.active { width: 29px; border-radius: 8px; background: var(--orange); }
+    .slide-label { margin-left: auto; color: rgba(255,255,255,.8); font-size: .84rem; }
+    footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 28px; min-height: 105px; padding: 22px; background: #000; color: rgba(255,255,255,.9); text-align: center; }
+    .audience-section { padding: 72px clamp(22px, 7vw, 96px) 82px; background: #0d0d0d; }
+    .audience-inner { width: min(1080px, 100%); margin: 0 auto; }
+    .audience-heading { margin: 0 0 10px; font-size: clamp(1.8rem, 3.6vw, 2.6rem); letter-spacing: -.025em; }
+    .audience-intro { margin: 0 0 28px; color: rgba(255,255,255,.68); line-height: 1.65; }
+    .audience-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .audience-card { min-height: 190px; padding: 27px; border: 1px solid #292929; border-radius: 16px; background: #121212; }
+    .audience-card.landlord { border-top: 3px solid var(--orange); }
+    .audience-card.tenant { border-top: 3px solid var(--blue); }
+    .audience-label { margin: 0 0 14px; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .landlord .audience-label { color: var(--orange); }
+    .tenant .audience-label { color: var(--blue); }
+    .audience-card h3 { margin: 0 0 10px; font-size: 1.3rem; }
+    .audience-card p { max-width: 470px; margin: 0; color: rgba(255,255,255,.72); line-height: 1.65; }
+    footer a { color: var(--blue); text-decoration: none; }
+    footer a:hover, footer a:focus-visible { text-decoration: underline; }
+    .footer-logo { height: 42px; width: auto; max-width: 150px; object-fit: contain; }
+    @media (max-width: 600px) {
+      .topbar { padding: 12px 18px; }
+      .brand img { height: 48px; }
+      .help-link { padding: 9px 12px; font-size: .87rem; }
+      .hero { min-height: max(650px, 100svh); }
+      .hero::after { background: linear-gradient(90deg, rgba(0,0,0,.9), rgba(0,0,0,.56)); }
+      .hero-content { width: auto; margin: 42px 22px 0; padding-bottom: 100px; }
+      .actions { align-items: stretch; flex-direction: column; }
+      .button { width: 100%; }
+      .steps { flex-direction: column; gap: 9px; }
+      .slide-label { display: none; }
+      .audience-section { padding: 54px 22px 60px; }
+      .audience-grid { grid-template-columns: 1fr; }
+      .audience-card { min-height: auto; padding: 23px; }
+      footer { flex-direction: column; gap: 9px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
 </head>
 <body>
-<nav>
-<a class="nav-logo" href="#"><img src="logo.png" alt="FEDNICE"></a>
-</nav>
-<div class="hero">
-<div class="slide active"><img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2000"></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2000"></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2000"></div>
-<div class="slide"><img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2000"></div>
-<div class="hero-text">
-<div class="sub">FEDNICE • Powering Connections</div>
-<h1>Manage Your Rentals <br>From Your Phone</h1>
-<p>List, manage, and monitor your properties. Built for landlords in Kapsabet, Eldoret & Nairobi. Click below to open your rental system.</p>
-<div class="cta-row">
-<a href="register.html" style="text-decoration:none">
-  <button style="background:#FF6A00;color:#000;font-weight:800;padding:14px 24px;border:none;border-radius:12px;cursor:pointer">
-    Open Rental Manager →
-  </button>
-</a>
-<a href="https://wa.me/254114462079?text=Hi%20FEDNICE" class="btn-blue">WhatsApp 0114462079</a>
-</div>
-</div>
-<div class="dots"><div class="dot active" onclick="go(0)"></div><div class="dot" onclick="go(1)"></div><div class="dot" onclick="go(2)"></div><div class="dot" onclick="go(3)"></div></div>
-</div>
-<footer>
-<img src="logo.png" style="height:70px;margin-bottom:15px"><br>
-📞 <a href="tel:0114462079">0114462079</a> | 📧 <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a><br>
-</footer>
-<a class="whatsapp" href="https://wa.me/254114462079">💬</a>
-<script>
-let cur=0; const slides=document.querySelectorAll('.slide'); const dots=document.querySelectorAll('.dot');
-function go(n){slides[cur].classList.remove('active');dots[cur].classList.remove('active');cur=n;slides[cur].classList.add('active');dots[cur].classList.add('active');}
-setInterval(()=>go((cur+1)%slides.length),4000);
-</script>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="FEDNICE home"><img src="logo.png" alt="FEDNICE"></a>
+    <a class="help-link" href="tel:0797477437">Need help? Call us</a>
+  </header>
+
+  <main>
+    <section class="hero" aria-label="Welcome to FEDNICE Rental System">
+      <div class="slides" aria-hidden="true">
+        <div class="slide active"><img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2000" alt=""></div>
+        <div class="slide"><img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2000" alt=""></div>
+        <div class="slide"><img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2000" alt=""></div>
+        <div class="slide"><img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2000" alt=""></div>
+      </div>
+      <div class="hero-content">
+        <div class="eyebrow">FEDNICE Rental System</div>
+        <h1>Rental management, <span>made easier.</span></h1>
+        <p class="intro">A simpler way for landlords to manage their houses and tenants, and for tenants to keep track of rent and payment updates.</p>
+        <div class="actions">
+          <a class="button button-primary" href="role-selection.html">Get started <span aria-hidden="true">→</span></a>
+          <a class="button button-secondary" href="https://wa.me/254797477437?text=Hello%20FEDNICE%2C%20I%20need%20assistance">Contact FEDNICE</a>
+        </div>
+        <div class="steps" aria-label="How to get started">
+          <span>Choose your account type</span>
+          <span>Register securely</span>
+          <span>Manage rentals online</span>
+        </div>
+      </div>
+      <div class="slide-controls" aria-label="House photos">
+        <button class="dot active" type="button" aria-label="Show house photo 1" aria-pressed="true"></button>
+        <button class="dot" type="button" aria-label="Show house photo 2" aria-pressed="false"></button>
+        <button class="dot" type="button" aria-label="Show house photo 3" aria-pressed="false"></button>
+        <button class="dot" type="button" aria-label="Show house photo 4" aria-pressed="false"></button>
+        <span class="slide-label">Homes and rentals across Kenya</span>
+      </div>
+    </section>
+
+    <section class="audience-section" aria-labelledby="audience-heading">
+      <div class="audience-inner">
+        <h2 class="audience-heading" id="audience-heading">Made for the people who make a rental home</h2>
+        <p class="audience-intro">A clear place for landlords and tenants to manage the details that matter.</p>
+        <div class="audience-grid">
+          <article class="audience-card landlord">
+            <p class="audience-label">For landlords</p>
+            <h3>Stay on top of your rentals</h3>
+            <p>Keep your houses, tenant details, rent due dates, and payment updates together in one place.</p>
+          </article>
+          <article class="audience-card tenant">
+            <p class="audience-label">For tenants</p>
+            <h3>Know what’s due and when</h3>
+            <p>See your rent due date, get an SMS reminder five days ahead, and submit payment details for landlord confirmation.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <img class="footer-logo" src="logo.png" alt="FEDNICE">
+    <span>For any assistance call <a href="tel:0797477437">0797477437</a></span>
+    <span>or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></span>
+  </footer>
+
+  <script>
+    const slides = [...document.querySelectorAll('.slide')];
+    const dots = [...document.querySelectorAll('.dot')];
+    let current = 0;
+    let timer;
+
+    function showSlide(index) {
+      slides[current].classList.remove('active');
+      dots[current].classList.remove('active');
+      dots[current].setAttribute('aria-pressed', 'false');
+      current = index;
+      slides[current].classList.add('active');
+      dots[current].classList.add('active');
+      dots[current].setAttribute('aria-pressed', 'true');
+    }
+
+    function startSlideShow() {
+      clearInterval(timer);
+      timer = setInterval(() => showSlide((current + 1) % slides.length), 5000);
+    }
+
+    dots.forEach((dot, index) => dot.addEventListener('click', () => {
+      showSlide(index);
+      startSlideShow();
+    }));
+    startSlideShow();
+  </script>
 </body>
 </html>
