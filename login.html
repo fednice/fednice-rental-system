@@ -22,23 +22,34 @@
 <script>
 const FEDNICE_API_BASE = window.FEDNICE_API_BASE || '';
 const form=document.getElementById('loginForm'),message=document.getElementById('message'),button=document.getElementById('loginButton');
+function friendlyLoginError(error,authenticated){
+  const code=String(error?.code||'');
+  if(['auth/invalid-credential','auth/user-not-found','auth/wrong-password','auth/invalid-email'].includes(code)) return 'Invalid login credentials. Check your email and password.';
+  if(code==='auth/too-many-requests') return 'Too many attempts. Please wait a little and try again.';
+  if(code==='auth/network-request-failed') return 'Connection problem. Check your internet and try again.';
+  if(authenticated&&code==='landlord-profile-missing') return 'No active landlord account was found. Please complete registration or contact Fednice Solutions.';
+  if(authenticated&&code==='activation-service-unavailable') return 'The landlord login service is temporarily unavailable. Please try again later.';
+  return 'We could not sign you in. Check your details and try again, or contact Fednice Solutions.';
+}
 form.addEventListener('submit',async event=>{
   event.preventDefault();button.disabled=true;message.textContent='Signing in…';
+  let authenticated=false;
   try{
     await firebase.auth().signInWithEmailAndPassword(document.getElementById('email').value.trim(),document.getElementById('password').value);
-    if(!FEDNICE_API_BASE) throw new Error('The landlord activation service is not configured yet. Please contact Fednice Solutions.');
+    authenticated=true;
+    if(!FEDNICE_API_BASE) throw Object.assign(new Error(),{code:'activation-service-unavailable'});
     const token=await firebase.auth().currentUser.getIdToken();
     const response=await fetch(FEDNICE_API_BASE.replace(/\/$/,'')+'/api/landlords/me',{headers:{Authorization:'Bearer '+token}});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok) throw new Error(data.error||'This login does not have an activated landlord account.');
+    if(response.status===401||response.status===404) throw Object.assign(new Error(),{code:'landlord-profile-missing'});
+    if(!response.ok) throw Object.assign(new Error(),{code:'activation-service-unavailable'});
     window.location.href='dashboard.html';
-  }catch(error){await firebase.auth().signOut().catch(()=>{});message.textContent=error.code==='auth/invalid-credential'?'Email or password is incorrect.':error.message||'Could not sign in.';button.disabled=false;}
+  }catch(error){await firebase.auth().signOut().catch(()=>{});message.textContent=friendlyLoginError(error,authenticated);button.disabled=false;}
 });
 document.getElementById('resetPassword').addEventListener('click',async event=>{
   event.preventDefault();const email=document.getElementById('email').value.trim();
   if(!email){message.textContent='Enter your email address first, then choose Forgot password.';return;}
   try{await firebase.auth().sendPasswordResetEmail(email);message.textContent='Password reset instructions have been sent if that email has an account.';}
-  catch(error){message.textContent=error.message||'Could not send reset instructions.';}
+  catch(error){message.textContent=error.code==='auth/network-request-failed'?'Connection problem. Check your internet and try again.':'Could not send reset instructions. Check your email and try again.';}
 });
 </script>
 </body>
