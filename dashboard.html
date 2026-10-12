@@ -323,6 +323,7 @@
       });
       document.getElementById('house-form').addEventListener('submit', async event => {
         event.preventDefault(); if (saving || !firebase.auth().currentUser) return;
+        const form = event.currentTarget;
         const number = document.getElementById('house-number').value.trim();
         const rent = Number(document.getElementById('house-rent').value);
         const waterMeter = document.getElementById('water-meter')?.value.trim() || '';
@@ -335,12 +336,13 @@
         try {
           const photoDataUrl = await compressPhoto(photoFile);
           await housesRef().add({houseNumber:number,waterMeter,powerMeter,monthlyRent:rent,photoDataUrl,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-          event.currentTarget.reset(); await loadRecords(); message.textContent = 'House saved.';
+          form.reset(); await loadRecords(); message.textContent = 'House saved.';
         } catch (error) { message.textContent = error.code === 'permission-denied' ? 'Firestore blocked this save. The live Firestore rules may need the landlord-scoped houses permission.' : error.message || 'Could not save the house.'; }
         finally { saving = false; button.disabled = false; }
       });
       document.getElementById('tenant-form').addEventListener('submit', async event => {
         event.preventDefault(); if (saving || !firebase.auth().currentUser) return;
+        const form = event.currentTarget;
         const fullName = document.getElementById('tenant-name').value.trim();
         const idNumber = document.getElementById('tenant-id').value.trim();
         const phone = document.getElementById('tenant-phone').value.trim();
@@ -354,7 +356,7 @@
         saving = true; const button = document.getElementById('add-tenant'); button.disabled = true; message.textContent = 'Saving tenant…';
         try {
           await tenantsRef().add({fullName,idNumber,phone,houseId:house.id,houseNumber:house.houseNumber,monthlyRent:Number(house.monthlyRent),joinedAt:firebase.firestore.Timestamp.fromDate(joined),nextDueAt:firebase.firestore.Timestamp.fromDate(nextDue),createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-          event.currentTarget.reset(); await loadRecords(); message.textContent = `Tenant saved. First rent is due ${formatDate(nextDue)}.`;
+          form.reset(); await loadRecords(); message.textContent = `Tenant saved. First rent is due ${formatDate(nextDue)}.`;
         } catch (error) { message.textContent = error.code === 'permission-denied' ? 'Firestore blocked this save. The live Firestore rules may need the landlord-scoped tenants permission.' : error.message || 'Could not save the tenant.'; }
         finally { saving = false; button.disabled = false; }
       });
