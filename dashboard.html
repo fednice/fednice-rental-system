@@ -38,10 +38,11 @@
         <div>
           <section class="panel" aria-labelledby="houses-title"><div class="section-heading"><h2 id="houses-title">Your houses</h2><span id="house-count" class="section-count">0 houses</span></div><div id="house-list" class="house-grid"></div></section>
           <section class="panel" aria-labelledby="tenants-title"><div class="section-heading"><h2 id="tenants-title">Tenants &amp; rent dates</h2><span id="tenant-count" class="section-count">0 tenants</span></div><p class="help" style="margin:-5px 0 13px">When rent is due soon or overdue, select WhatsApp reminder to open a ready-to-send message. Review it and tap Send in WhatsApp.</p><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>House</th><th>Joined</th><th>Rent due</th><th>Rent</th><th>Actions</th></tr></thead><tbody id="tenant-rows"></tbody></table></div><div id="tenant-empty" class="empty" hidden>No tenants yet. Add a tenant using the form.</div></section>
+          <section class="panel" aria-labelledby="billing-title"><div class="section-heading"><h2 id="billing-title">Billing &amp; current rent cycle</h2></div><p class="help">Select a tenant to review rent and update any water or power bill amounts for the current cycle. Only you as landlord can edit these charges.</p><form id="billing-form"><label>Tenant<select id="billing-tenant" required><option value="">Add a tenant first</option></select></label><div id="billing-summary" class="notice" style="margin:0">Select a tenant to see their monthly rent and next due date.</div><label>Water bill (KSh, optional)<input id="billing-water-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><label>Power bill (KSh, optional)<input id="billing-power-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><button id="save-billing" class="button primary" type="submit">Save billing details</button><p id="billing-message" class="form-message" role="status" aria-live="polite"></p></form></section>
         </div>
         <aside>
           <section class="panel" aria-labelledby="add-house-title"><div class="section-heading"><h2 id="add-house-title">Add a house</h2></div><form id="house-form"><label>House name or number<input id="house-number" maxlength="80" placeholder="Use your own name, e.g. Block B, Room 4" required></label><label>Water meter number<input id="water-meter" maxlength="60" placeholder="Optional meter reference"></label><label>Power meter number<input id="power-meter" maxlength="60" placeholder="Optional meter reference"></label><label>Monthly rent (KSh)<input id="house-rent" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 5500" required></label><label>House or apartment photo<input id="house-photo" type="file" accept="image/*"></label><p class="help">A clear photo will be resized before it is saved with this landlord’s house record.</p><button id="add-house" class="button primary" type="submit">Save house</button><p id="house-message" class="form-message" role="status" aria-live="polite"></p></form></section>
-          <section class="panel" aria-labelledby="add-tenant-title"><div class="section-heading"><h2 id="add-tenant-title">Add a tenant</h2></div><form id="tenant-form"><label>Tenant full name<input id="tenant-name" maxlength="120" autocomplete="name" required></label><label>National ID number<input id="tenant-id" maxlength="20" inputmode="numeric" required></label><label>Phone number<input id="tenant-phone" type="tel" maxlength="20" autocomplete="tel" placeholder="07… or +254…" required></label><label>House<select id="tenant-house" required><option value="">Add a vacant house first</option></select></label><label>Joining date<input id="joined-date" type="date" required></label><label>Water bill (KSh, optional)<input id="tenant-water-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><label>Power bill (KSh, optional)<input id="tenant-power-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><p class="help">The first rent due date is automatically set to 30 days after the joining date. Optional bill amounts are included in the WhatsApp reminder and only you as landlord can edit them. You can update them later using Edit.</p><button id="add-tenant" class="button primary" type="submit">Save tenant</button><p id="tenant-message" class="form-message" role="status" aria-live="polite"></p></form></section>
+          <section class="panel" aria-labelledby="add-tenant-title"><div class="section-heading"><h2 id="add-tenant-title">Add a tenant</h2></div><form id="tenant-form"><label>Tenant full name<input id="tenant-name" maxlength="120" autocomplete="name" required></label><label>National ID number<input id="tenant-id" maxlength="20" inputmode="numeric" required></label><label>Phone number<input id="tenant-phone" type="tel" maxlength="20" autocomplete="tel" placeholder="07… or +254…" required></label><label>House<select id="tenant-house" required><option value="">Add a vacant house first</option></select></label><label>Joining date<input id="joined-date" type="date" required></label><p class="help">The first rent due date is automatically set to 30 days after the joining date. Manage rent and optional utility bills in the Billing section.</p><button id="add-tenant" class="button primary" type="submit">Save tenant</button><p id="tenant-message" class="form-message" role="status" aria-live="polite"></p></form></section>
         </aside>
       </div>
     </div>
@@ -147,6 +148,41 @@
           ? '<option value="">Select a vacant house</option>' + vacant.map(house => `<option value="${escapeHtml(house.id)}">${escapeHtml(house.houseNumber)} · KSh ${Number(house.monthlyRent).toLocaleString('en-KE')}</option>`).join('')
           : '<option value="">No vacant houses available</option>';
       }
+      function updateBillingPanel() {
+        const select = document.getElementById('billing-tenant');
+        const selectedId = select.value;
+        select.innerHTML = tenants.length
+          ? '<option value="">Select a tenant</option>' + tenants.map(tenant => {
+              const house = houses.find(item => item.id === tenant.houseId);
+              return `<option value="${escapeHtml(tenant.id)}">${escapeHtml(tenant.fullName)} · ${escapeHtml(house?.houseNumber || tenant.houseNumber || 'House removed')}</option>`;
+            }).join('')
+          : '<option value="">Add a tenant first</option>';
+        if (tenants.some(tenant => tenant.id === selectedId)) select.value = selectedId;
+        const tenant = tenants.find(item => item.id === select.value);
+        const waterInput = document.getElementById('billing-water-bill');
+        const powerInput = document.getElementById('billing-power-bill');
+        const saveButton = document.getElementById('save-billing');
+        const summary = document.getElementById('billing-summary');
+        waterInput.disabled = !tenant;
+        powerInput.disabled = !tenant;
+        saveButton.disabled = !tenant || saving;
+        if (!tenant) {
+          waterInput.value = '';
+          powerInput.value = '';
+          summary.textContent = tenants.length ? 'Select a tenant to see their monthly rent and next due date.' : 'Add a tenant before entering billing details.';
+          return;
+        }
+        const house = houses.find(item => item.id === tenant.houseId);
+        const joined = tenant.joinedAt?.toDate ? tenant.joinedAt.toDate() : new Date(`${tenant.joinedAt}T12:00:00`);
+        const due = tenant.nextDueAt?.toDate ? tenant.nextDueAt.toDate() : addDays(joined, 30);
+        const rent = Number(tenant.monthlyRent || house?.monthlyRent || 0);
+        const waterBill = optionalBill(tenant.waterBill, 'water bill');
+        const powerBill = optionalBill(tenant.powerBill, 'power bill');
+        waterInput.value = waterBill ?? '';
+        powerInput.value = powerBill ?? '';
+        const total = rent + (waterBill || 0) + (powerBill || 0);
+        summary.textContent = `${tenant.fullName} · Rent: KSh ${rent.toLocaleString('en-KE')} · Next due: ${formatDate(due)} · Current total: KSh ${total.toLocaleString('en-KE')}`;
+      }
       function render() {
         const occupiedIds = new Set(tenants.map(tenant => tenant.houseId));
         document.getElementById('total-houses').textContent = houses.length;
@@ -182,6 +218,7 @@
         }).join('');
         document.getElementById('tenant-empty').hidden = tenants.length > 0;
         updateHouseOptions();
+        updateBillingPanel();
       }
       async function loadRecords() {
         const [houseSnapshot, tenantSnapshot] = await Promise.all([housesRef().get(), tenantsRef().get()]);
@@ -210,7 +247,7 @@
         editingRecord = {type:'tenant',id};
         document.getElementById('editor-title').textContent = `Edit ${tenant.fullName}`;
         const available = houses.filter(house => house.id === tenant.houseId || !tenants.some(other => other.id !== tenant.id && other.houseId === house.id));
-        editorFields.innerHTML = `<label>Tenant full name<input id="edit-tenant-name" maxlength="120" required value="${escapeHtml(tenant.fullName)}"></label><label>National ID number<input id="edit-tenant-id" maxlength="20" required value="${escapeHtml(tenant.idNumber)}"></label><label>Phone number<input id="edit-tenant-phone" type="tel" maxlength="20" required value="${escapeHtml(tenant.phone)}"></label><label>Assigned house<select id="edit-tenant-house" required>${available.map(house => `<option value="${escapeHtml(house.id)}" ${house.id === tenant.houseId ? 'selected' : ''}>${escapeHtml(house.houseNumber)} · KSh ${Number(house.monthlyRent).toLocaleString('en-KE')}</option>`).join('')}</select></label><label>Joining date<input id="edit-tenant-joined" type="date" required value="${dateInputValue(tenant.joinedAt)}"></label><label>Water bill for this rent cycle (KSh, optional)<input id="edit-tenant-water-bill" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(tenant.waterBill ?? '')}" placeholder="Leave blank if none"></label><label>Power bill for this rent cycle (KSh, optional)<input id="edit-tenant-power-bill" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(tenant.powerBill ?? '')}" placeholder="Leave blank if none"></label><p class="help">Only you as landlord can edit these bill amounts. Update them for each rent cycle as needed. Changing the joining date resets the next rent due date to 30 days after that date.</p>`;
+        editorFields.innerHTML = `<label>Tenant full name<input id="edit-tenant-name" maxlength="120" required value="${escapeHtml(tenant.fullName)}"></label><label>National ID number<input id="edit-tenant-id" maxlength="20" required value="${escapeHtml(tenant.idNumber)}"></label><label>Phone number<input id="edit-tenant-phone" type="tel" maxlength="20" required value="${escapeHtml(tenant.phone)}"></label><label>Assigned house<select id="edit-tenant-house" required>${available.map(house => `<option value="${escapeHtml(house.id)}" ${house.id === tenant.houseId ? 'selected' : ''}>${escapeHtml(house.houseNumber)} · KSh ${Number(house.monthlyRent).toLocaleString('en-KE')}</option>`).join('')}</select></label><label>Joining date<input id="edit-tenant-joined" type="date" required value="${dateInputValue(tenant.joinedAt)}"></label><p class="help">Changing the joining date resets the next rent due date to 30 days after that date. Manage rent and utility bills in Billing &amp; current rent cycle.</p>`;
         editorMessage.textContent = '';
         editor.showModal();
       }
@@ -332,14 +369,12 @@
             const phone = document.getElementById('edit-tenant-phone').value.trim();
             const house = houses.find(item => item.id === document.getElementById('edit-tenant-house').value);
             const joinedValue = document.getElementById('edit-tenant-joined').value;
-            const waterBill = optionalBill(document.getElementById('edit-tenant-water-bill').value, 'water bill', true);
-            const powerBill = optionalBill(document.getElementById('edit-tenant-power-bill').value, 'power bill', true);
             if (!tenant || !house) throw new Error('Choose an available house.');
             if (tenants.some(item => item.id !== tenant.id && item.houseId === house.id)) throw new Error('That house is already assigned to another tenant.');
             if (!joinedValue) throw new Error('Choose the tenant’s joining date.');
             const joined = dateFromInput(joinedValue);
             const nextDue = addDays(joined, 30);
-            await tenantsRef().doc(tenant.id).update({fullName,idNumber,phone,houseId:house.id,houseNumber:house.houseNumber,monthlyRent:Number(house.monthlyRent),waterBill,powerBill,joinedAt:firebase.firestore.Timestamp.fromDate(joined),nextDueAt:firebase.firestore.Timestamp.fromDate(nextDue),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+            await tenantsRef().doc(tenant.id).update({fullName,idNumber,phone,houseId:house.id,houseNumber:house.houseNumber,monthlyRent:Number(house.monthlyRent),joinedAt:firebase.firestore.Timestamp.fromDate(joined),nextDueAt:firebase.firestore.Timestamp.fromDate(nextDue),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
           }
           const type = editingRecord.type;
           editor.close();
@@ -374,8 +409,6 @@
         const fullName = document.getElementById('tenant-name').value.trim();
         const idNumber = document.getElementById('tenant-id').value.trim();
         const phone = document.getElementById('tenant-phone').value.trim();
-        const waterBillInput = document.getElementById('tenant-water-bill').value;
-        const powerBillInput = document.getElementById('tenant-power-bill').value;
         const house = houses.find(item => item.id === document.getElementById('tenant-house').value);
         const joinedValue = document.getElementById('joined-date').value;
         const message = document.getElementById('tenant-message');
@@ -385,12 +418,36 @@
         const nextDue = addDays(joined, 30);
         saving = true; const button = document.getElementById('add-tenant'); button.disabled = true; message.textContent = 'Saving tenant…';
         try {
-          const waterBill = optionalBill(waterBillInput, 'water bill', true);
-          const powerBill = optionalBill(powerBillInput, 'power bill', true);
-          await tenantsRef().add({fullName,idNumber,phone,houseId:house.id,houseNumber:house.houseNumber,monthlyRent:Number(house.monthlyRent),waterBill,powerBill,joinedAt:firebase.firestore.Timestamp.fromDate(joined),nextDueAt:firebase.firestore.Timestamp.fromDate(nextDue),createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+          await tenantsRef().add({fullName,idNumber,phone,houseId:house.id,houseNumber:house.houseNumber,monthlyRent:Number(house.monthlyRent),joinedAt:firebase.firestore.Timestamp.fromDate(joined),nextDueAt:firebase.firestore.Timestamp.fromDate(nextDue),createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
           form.reset(); await loadRecords(); message.textContent = `Tenant saved. First rent is due ${formatDate(nextDue)}.`;
         } catch (error) { message.textContent = error.code === 'permission-denied' ? 'Firestore blocked this save. The live Firestore rules may need the landlord-scoped tenants permission.' : error.message || 'Could not save the tenant.'; }
         finally { saving = false; button.disabled = false; }
+      });
+      document.getElementById('billing-tenant').addEventListener('change', updateBillingPanel);
+      document.getElementById('billing-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const tenantId = document.getElementById('billing-tenant').value;
+        const tenant = tenants.find(item => item.id === tenantId);
+        const message = document.getElementById('billing-message');
+        const button = document.getElementById('save-billing');
+        if (!tenant) { message.textContent = 'Select a tenant first.'; return; }
+        if (saving || !firebase.auth().currentUser) return;
+        let waterBill, powerBill;
+        try {
+          waterBill = optionalBill(document.getElementById('billing-water-bill').value, 'water bill', true);
+          powerBill = optionalBill(document.getElementById('billing-power-bill').value, 'power bill', true);
+        } catch (error) { message.textContent = error.message; return; }
+        saving = true; button.disabled = true; message.textContent = 'Saving billing details…';
+        try {
+          await tenantsRef().doc(tenant.id).update({waterBill,powerBill,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+          await loadRecords();
+          message.textContent = 'Billing details saved. They will appear in the rent reminder.';
+        } catch (error) {
+          message.textContent = error.code === 'permission-denied' ? 'Firestore blocked saving billing details. Check the landlord-owned tenant rules.' : error.message || 'Could not save billing details.';
+        } finally {
+          saving = false;
+          updateBillingPanel();
+        }
       });
       const dateInput = document.getElementById('joined-date');
       const today = new Date(); dateInput.max = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
