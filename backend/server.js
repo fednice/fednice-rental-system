@@ -281,9 +281,10 @@ app.get('/api/tenants/me', requireAuth, asyncRoute(async (req, res) => {
   if (match.empty) return res.status(404).json({ error: 'No tenant account is linked to this login.' });
   const tenantDoc = match.docs[0];
   const landlordUid = tenantDoc.ref.parent.parent.id;
+  const houseId = String(tenantDoc.get('houseId') || '').trim();
   const [landlord, house, paymentSnapshot] = await Promise.all([
     db.collection('landlords').doc(landlordUid).get(),
-    db.collection('landlords').doc(landlordUid).collection('houses').doc(String(tenantDoc.get('houseId') || '')).get(),
+    houseId ? db.collection('landlords').doc(landlordUid).collection('houses').doc(houseId).get() : Promise.resolve(null),
     db.collection('landlords').doc(landlordUid).collection('payments').where('tenantId', '==', tenantDoc.id).get()
   ]);
   const data = tenantDoc.data();
@@ -292,8 +293,8 @@ app.get('/api/tenants/me', requireAuth, asyncRoute(async (req, res) => {
     return { id: doc.id, amount: payment.amount, status: payment.status, submittedAt: payment.submittedAt?.toDate?.().toISOString() || null, reviewedAt: payment.reviewedAt?.toDate?.().toISOString() || null };
   }).sort((a,b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || ''))).slice(0,10);
   return res.json({
-    fullName: data.fullName || '', phone: data.phone || '', houseNumber: house.exists ? house.get('houseNumber') : data.houseNumber || '',
-    monthlyRent: Number(data.monthlyRent || (house.exists ? house.get('monthlyRent') : 0) || 0),
+    fullName: data.fullName || '', phone: data.phone || '', houseNumber: house?.exists ? house.get('houseNumber') : data.houseNumber || '',
+    monthlyRent: Number(data.monthlyRent || (house?.exists ? house.get('monthlyRent') : 0) || 0),
     waterBill: data.waterBill ?? null, powerBill: data.powerBill ?? null,
     joinedAt: data.joinedAt?.toDate?.().toISOString() || null,
     nextDueAt: data.nextDueAt?.toDate?.().toISOString() || null,
