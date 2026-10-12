@@ -19,7 +19,21 @@
       const money = amount => `KSh ${Number(amount || 0).toLocaleString('en-KE')}`;
       const date = value => value ? new Intl.DateTimeFormat('en-KE',{day:'numeric',month:'long',year:'numeric'}).format(new Date(value)) : 'Not set';
       let refreshTimer = null;
+      let activeDueDate = null;
       let checkingAccess = false;
+      function updateDueCountdown() {
+        const status = document.getElementById('due-status');
+        if (!activeDueDate || !Number.isFinite(activeDueDate.getTime())) { status.textContent = 'Due date not set'; return; }
+        const difference = activeDueDate.getTime() - Date.now();
+        const totalSeconds = Math.floor(Math.abs(difference) / 1000);
+        const daysLeft = Math.floor(totalSeconds / 86400);
+        const hoursLeft = Math.floor((totalSeconds % 86400) / 3600);
+        const minutesLeft = Math.floor((totalSeconds % 3600) / 60);
+        const secondsLeft = totalSeconds % 60;
+        const timer = `${daysLeft}d ${String(hoursLeft).padStart(2, '0')}h ${String(minutesLeft).padStart(2, '0')}m ${String(secondsLeft).padStart(2, '0')}s`;
+        status.textContent = difference > 0 ? `${timer} remaining` : `Overdue by ${timer}`;
+      }
+      setInterval(updateDueCountdown, 1000);
       async function refreshTenantDetails(user) {
         if (checkingAccess) return;
         checkingAccess = true;
@@ -48,7 +62,8 @@
           document.getElementById('total').textContent = money(rent + water + power);
           document.getElementById('due-date').textContent = date(data.nextDueAt);
           const dueCard = document.getElementById('due-card');
-          document.getElementById('due-status').textContent = days == null ? 'Due date not set' : days < 0 ? `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}` : days === 0 ? 'Due today' : `${days} day${days === 1 ? '' : 's'} remaining`;
+          activeDueDate = due;
+          updateDueCountdown();
           const dueReminder = document.getElementById('due-reminder');
           if (days != null && days <= 5) {
             dueReminder.hidden = false;

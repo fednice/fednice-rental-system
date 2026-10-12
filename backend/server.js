@@ -386,7 +386,7 @@ app.get('/api/landlords/me', requireAuth, asyncRoute(async (req, res) => {
   const doc = await db.collection('landlords').doc(req.user.uid).get();
   if (!doc.exists) return res.status(404).json({ error: 'No activated landlord profile was found.' });
   const data = doc.data();
-  return res.json({ uid: req.user.uid, fullName: data.fullName, email: data.email, propertyName: data.propertyName, subscriptionStatus: data.subscriptionStatus, trialEndsAt: data.trialEndsAt.toDate().toISOString() });
+  return res.json({ uid: req.user.uid, fullName: data.fullName, email: data.email, propertyName: data.propertyName, subscriptionStatus: data.subscriptionStatus, trialEndsAt: data.trialEndsAt.toDate().toISOString(), subscriptionEndsAt: data.subscriptionEndsAt?.toDate?.().toISOString() || null });
 }));
 
 app.use((error, req, res, next) => {
