@@ -1,0 +1,51 @@
+/* FEDNICE shared visual polish. Keeps the existing charcoal, orange, and blue palette. */
+:root {
+  --fed-surface: #141414;
+  --fed-surface-raised: #1b1b1b;
+  --fed-outline: rgba(255, 255, 255, .09);
+  --fed-muted: #aaa;
+  --fed-orange: #ff6a00;
+  --fed-blue: #1677ff;
+}
+
+html { text-rendering: optimizeLegibility; }
+body { font-family: Inter, "Segoe UI", Arial, sans-serif; }
+:focus-visible { outline: 2px solid #ff9a53; outline-offset: 3px; }
+
+a { transition: color .18s ease, opacity .18s ease; }
+button, .button, .btn, .record-button, .choice, .audience-card {
+  -webkit-tap-highlight-color: transparent;
+}
+.button, .btn, .record-button, button:not(.dot) {
+  transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+}
+.button:not(:disabled):hover, .btn:not(:disabled):hover,
+.record-button:not(:disabled):hover, button:not(:disabled):not(.dot):hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+input, select, textarea {
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #ff8a3d;
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, .14);
+}
+.card, .panel, .summary-card, .audience-card, .choice {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
+}
+.audience-card, .choice, .house-card {
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.audience-card:hover, .choice:hover, .house-card:hover {
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .3);
+}
+.footer { border-top-color: var(--fed-outline); }
+.brand-logo { display: block; width: auto; height: 46px; max-width: min(55vw, 190px); object-fit: contain; }
+@media (max-width: 600px) {
+  .brand-logo { height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+  .audience-card:hover, .choice:hover, .house-card:hover { transform: none; }
+}

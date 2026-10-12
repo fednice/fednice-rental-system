@@ -6,9 +6,11 @@
 <style>
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#0a0a0a;color:#fff;font:15px Inter,Arial,sans-serif;display:flex;flex-direction:column}.topbar{padding:16px 24px;background:#111;border-bottom:1px solid #222}.logo{font-weight:800;font-size:22px}.logo b{color:#1e90ff}.logo span{color:#ff6a00}.card{width:min(440px,calc(100% - 32px));margin:9vh auto 40px;padding:28px;background:#141414;border:1px solid #292929;border-radius:18px}h1{margin:0 0 8px;font-size:25px}p{color:#aaa;line-height:1.55}label{display:block;margin:16px 0 5px;color:#bbb;font-size:13px}input{width:100%;padding:13px 14px;border-radius:10px;border:1px solid #393939;background:#1e1e1e;color:#fff;font-size:14px}input:focus{outline:2px solid #ff6a00}.btn{width:100%;margin-top:20px;padding:14px;border:0;border-radius:10px;background:#ff6a00;color:#111;font-weight:800;cursor:pointer}.btn:disabled{opacity:.6;cursor:wait}.links{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px}a{color:#ff9a53}#message{min-height:24px;color:#ffb47f;font-size:13px}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #252525;color:#aaa;font-size:12px;line-height:1.6}.footer b{color:#ff6a00}
 </style>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="topbar"><div class="logo"><b>Fed</b><span>nice</span></div></header>
+<header class="topbar"><a href="index.html" aria-label="FEDNICE home"><img class="brand-logo" src="logo.png" alt="FEDNICE"></a></header>
 <main class="card">
 <h1>Landlord login</h1><p>Sign in using the email and password you chose when registering.</p>
 <form id="loginForm"><label for="email">Email address</label><input id="email" type="email" autocomplete="username" required><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required><button class="btn" id="loginButton" type="submit">Sign in</button><p id="message" role="status" aria-live="polite"></p></form>
