@@ -39,6 +39,7 @@
           <section class="panel" aria-labelledby="houses-title"><div class="section-heading"><h2 id="houses-title">Your houses</h2><span id="house-count" class="section-count">0 houses</span></div><div id="house-list" class="house-grid"></div></section>
           <section class="panel" aria-labelledby="tenants-title"><div class="section-heading"><h2 id="tenants-title">Tenants &amp; rent dates</h2><span id="tenant-count" class="section-count">0 tenants</span></div><p class="help" style="margin:-5px 0 13px">When rent is due soon or overdue, select WhatsApp reminder to open a ready-to-send message. Review it and tap Send in WhatsApp. Generate a one-time setup code for a tenant so they can create their phone-and-password login.</p><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>House</th><th>Joined</th><th>Rent due</th><th>Rent</th><th>Actions</th></tr></thead><tbody id="tenant-rows"></tbody></table></div><div id="tenant-empty" class="empty" hidden>No tenants yet. Add a tenant using the form.</div><div id="tenant-access-result" class="notice" style="margin:14px 0 0" hidden><strong>One-time tenant setup code</strong><p id="tenant-access-code" style="margin:8px 0;font-size:1.5rem;letter-spacing:.16em;font-weight:800;color:#ff9a53"></p><p id="tenant-access-expiry" class="help"></p><button id="tenant-access-copy" class="record-button" type="button">Copy setup code</button></div></section>
           <section class="panel" aria-labelledby="billing-title"><div class="section-heading"><h2 id="billing-title">Billing &amp; current rent cycle</h2></div><p class="help">Select a tenant to review rent and update any water or power bill amounts for the current cycle. Only you as landlord can edit these charges.</p><form id="billing-form"><label>Tenant<select id="billing-tenant" required><option value="">Add a tenant first</option></select></label><div id="billing-summary" class="notice" style="margin:0">Select a tenant to see their monthly rent and next due date.</div><label>Water bill (KSh, optional)<input id="billing-water-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><label>Power bill (KSh, optional)<input id="billing-power-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><button id="save-billing" class="button primary" type="submit">Save billing details</button><p id="billing-message" class="form-message" role="status" aria-live="polite"></p></form></section>
+          <section class="panel" aria-labelledby="payment-submissions-title"><div class="section-heading"><h2 id="payment-submissions-title">Tenant payment submissions</h2><span id="pending-payment-count" class="section-count"></span><button id="refresh-payment-submissions" class="record-button" type="button">Refresh</button></div><p class="help">Review the tenant’s M-Pesa message and confirm the transaction in your M-Pesa statement before marking it paid.</p><div id="payment-submission-list" class="empty">Loading payment submissions…</div></section>
         </div>
         <aside>
           <section class="panel" aria-labelledby="add-house-title"><div class="section-heading"><h2 id="add-house-title">Add a house</h2></div><form id="house-form"><label>House name or number<input id="house-number" maxlength="80" placeholder="Use your own name, e.g. Block B, Room 4" required></label><label>Water meter number<input id="water-meter" maxlength="60" placeholder="Optional meter reference"></label><label>Power meter number<input id="power-meter" maxlength="60" placeholder="Optional meter reference"></label><label>Monthly rent (KSh)<input id="house-rent" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 5500" required></label><label>House or apartment photo<input id="house-photo" type="file" accept="image/*"></label><p class="help">A clear photo will be resized before it is saved with this landlord’s house record.</p><button id="add-house" class="button primary" type="submit">Save house</button><p id="house-message" class="form-message" role="status" aria-live="polite"></p></form></section>
@@ -64,6 +65,7 @@
       let houses = [];
       let tenants = [];
       let saving = false;
+      let paymentRefreshTimer = null;
       let landlordPropertyName = 'FEDNICE Rental System';
 
       function showNotice(message, isError = false) {
@@ -207,6 +209,9 @@
           const due = tenant.nextDueAt?.toDate ? tenant.nextDueAt.toDate() : addDays(joined, 30);
           const houseName = house?.houseNumber || tenant.houseNumber || 'House removed';
           const rent = Number(tenant.monthlyRent || house?.monthlyRent || 0);
+          const today = new Date(); today.setHours(0,0,0,0);
+          const paidThrough = tenant.lastPaidCycleDueAt?.toDate ? tenant.lastPaidCycleDueAt.toDate() : null;
+          const dueDisplay = paidThrough && today < due ? `<span class="due ok">PAID · Next due ${formatDate(due)}</span>` : rentStatus(due);
           const phone = whatsappPhone(tenant.phone);
           const waterBill = optionalBill(tenant.waterBill, 'water bill');
           const powerBill = optionalBill(tenant.powerBill, 'power bill');
@@ -215,7 +220,7 @@
           const reminderText = `Hello ${tenant.fullName}, this is a friendly rent reminder from ${landlordPropertyName}. Rent for ${houseName} is due ${formatDate(due)}.\nRent: KSh ${rent.toLocaleString('en-KE')}${utilityLines.length ? `\n${utilityLines.join('\n')}` : ''}\nTotal due: KSh ${totalDue.toLocaleString('en-KE')}. If you have already paid, please ignore this reminder and share your payment confirmation with your landlord. Thank you.`;
           const reminderAction = phone ? `<a class="record-button" href="https://wa.me/${phone}?text=${encodeURIComponent(reminderText)}" target="_blank" rel="noopener noreferrer">WhatsApp reminder</a>` : '<span class="help">Check phone number</span>';
           const accessAction = tenant.tenantUid ? '<span class="help">Tenant login ready</span>' : `<button class="record-button" type="button" data-generate-tenant-code="${escapeHtml(tenant.id)}">Generate login code</button>`;
-          return `<tr><td><strong>${escapeHtml(tenant.fullName)}</strong><br><span style="color:#999">ID: ${escapeHtml(tenant.idNumber)}</span></td><td>${escapeHtml(houseName)}</td><td>${formatDate(joined)}</td><td>${rentStatus(due)}</td><td>KSh ${rent.toLocaleString('en-KE')}</td><td><div class="record-actions">${reminderAction}${accessAction}<button class="record-button" type="button" data-edit-tenant="${escapeHtml(tenant.id)}">Edit</button><button class="record-button danger" type="button" data-delete-tenant="${escapeHtml(tenant.id)}">Delete</button></div></td></tr>`;
+          return `<tr><td><strong>${escapeHtml(tenant.fullName)}</strong><br><span style="color:#999">ID: ${escapeHtml(tenant.idNumber)}</span></td><td>${escapeHtml(houseName)}</td><td>${formatDate(joined)}</td><td>${dueDisplay}</td><td>KSh ${rent.toLocaleString('en-KE')}</td><td><div class="record-actions">${reminderAction}${accessAction}<button class="record-button" type="button" data-edit-tenant="${escapeHtml(tenant.id)}">Edit</button><button class="record-button danger" type="button" data-delete-tenant="${escapeHtml(tenant.id)}">Delete</button></div></td></tr>`;
         }).join('');
         document.getElementById('tenant-empty').hidden = tenants.length > 0;
         updateHouseOptions();
@@ -321,6 +326,9 @@
         try {
           await checkLandlordProfile(user);
           await loadRecords();
+          await loadPaymentSubmissions();
+          if (paymentRefreshTimer) clearInterval(paymentRefreshTimer);
+          paymentRefreshTimer = setInterval(loadPaymentSubmissions, 30000);
           content.hidden = false;
           showNotice('Your landlord dashboard is ready.');
           setTimeout(() => { if (notice.textContent === 'Your landlord dashboard is ready.') notice.hidden = true; }, 3500);
@@ -369,6 +377,45 @@
         if (!lastTenantAccessCode) return;
         try { await navigator.clipboard.writeText(lastTenantAccessCode); showNotice('Tenant setup code copied. Share it privately with the tenant.'); }
         catch { showNotice('Copy was blocked. Select and copy the displayed code manually.', true); }
+      });
+      async function loadPaymentSubmissions() {
+        const container = document.getElementById('payment-submission-list');
+        const user = firebase.auth().currentUser;
+        if (!user || !apiBase) return;
+        try {
+          const token = await user.getIdToken();
+          const response = await fetch(`${apiBase}/api/landlords/payment-submissions`, {headers:{Authorization:`Bearer ${token}`} });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Could not load payment submissions.');
+          const pendingCount = (data.submissions || []).filter(payment => payment.status === 'pending').length;
+          document.getElementById('pending-payment-count').textContent = pendingCount ? `${pendingCount} pending` : 'No pending payments';
+          if (!data.submissions?.length) { container.className = 'empty'; container.textContent = 'No tenant payment submissions yet.'; return; }
+          container.className = '';
+          container.innerHTML = data.submissions.map(payment => {
+            const actions = payment.status === 'pending' ? `<div class="record-actions"><button class="record-button" type="button" data-review-payment="confirmed" data-payment-id="${escapeHtml(payment.id)}">Confirm paid</button><button class="record-button danger" type="button" data-review-payment="rejected" data-payment-id="${escapeHtml(payment.id)}">Reject</button></div>` : '';
+            return `<article class="payment-submission" style="padding:14px 0;border-bottom:1px solid #2b2b2b"><div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px"><strong>${escapeHtml(payment.tenantName)} · ${escapeHtml(payment.houseNumber)}</strong><span class="status${payment.status === 'confirmed' ? ' occupied' : ''}">${escapeHtml(String(payment.status).toUpperCase())}</span></div><p class="help" style="margin:6px 0">Amount: KSh ${Number(payment.amount || 0).toLocaleString('en-KE')} · M-Pesa code: <strong>${escapeHtml(payment.receiptCode)}</strong> · ${payment.submittedAt ? formatDate(new Date(payment.submittedAt)) : 'Just now'}</p><details><summary style="cursor:pointer;color:#ff9a53">View pasted M-Pesa message</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;color:#ddd;background:#1b1b1b;padding:10px;border-radius:7px">${escapeHtml(payment.smsText)}</pre></details>${actions}</article>`;
+          }).join('');
+        } catch (error) { container.className = 'empty'; container.textContent = error.message || 'Could not load payment submissions.'; }
+      }
+      document.getElementById('refresh-payment-submissions').addEventListener('click', loadPaymentSubmissions);
+      document.getElementById('payment-submission-list').addEventListener('click', async event => {
+        const button = event.target.closest('[data-review-payment]');
+        if (!button || saving) return;
+        const decision = button.dataset.reviewPayment;
+        const prompt = decision === 'confirmed'
+          ? 'Confirm only after you have checked this transaction in your M-Pesa statement. Mark this rent cycle paid?'
+          : 'Reject this payment submission? The tenant will see that it was not confirmed.';
+        if (!window.confirm(prompt)) return;
+        saving = true; button.disabled = true;
+        try {
+          const token = await firebase.auth().currentUser.getIdToken();
+          const response = await fetch(`${apiBase}/api/landlords/payment-submissions/${encodeURIComponent(button.dataset.paymentId)}/review`, {method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({decision})});
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Could not update this payment.');
+          await Promise.all([loadPaymentSubmissions(), loadRecords()]);
+          showNotice(decision === 'confirmed' ? 'Payment confirmed. The tenant will see a thank-you message.' : 'Payment rejected.');
+        } catch (error) { showNotice(error.message || 'Could not update this payment.', true); }
+        finally { saving = false; }
       });
       document.getElementById('editor-close').addEventListener('click', () => editor.close());
       document.getElementById('editor-cancel').addEventListener('click', () => editor.close());

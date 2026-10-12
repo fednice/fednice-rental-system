@@ -165,16 +165,132 @@ app.post('/api/tenants/revoke', requireAuth, asyncRoute(async (req, res) => {
   return res.json({ revoked: true });
 }));
 
+app.post('/api/tenants/payment-submissions', requireAuth, asyncRoute(async (req, res) => {
+  const receiptCode = String(req.body.receiptCode || '').trim().toUpperCase();
+  const smsText = String(req.body.smsText || '').trim().slice(0, 2000);
+  const amount = Number(req.body.amount);
+  if (!/^[A-Z0-9]{8,12}$/.test(receiptCode)) return res.status(400).json({ error: 'Enter the M-Pesa transaction code from the message.' });
+  if (!Number.isSafeInteger(amount) || amount < 1) return res.status(400).json({ error: 'Enter a valid amount paid.' });
+  if (smsText.length < 12 || !smsText.toUpperCase().includes(receiptCode)) return res.status(400).json({ error: 'Paste the full M-Pesa message and make sure it includes the transaction code.' });
+
+  const tenantQuery = await db.collectionGroup('tenants').where('tenantUid', '==', req.user.uid).limit(1).get();
+  if (tenantQuery.empty) return res.status(403).json({ error: 'Your tenant login is no longer active.' });
+  const tenantDoc = tenantQuery.docs[0];
+  const tenant = tenantDoc.data();
+  const landlordUid = tenantDoc.ref.parent.parent.id;
+  const rent = Number(tenant.monthlyRent || 0), water = Number(tenant.waterBill || 0), power = Number(tenant.powerBill || 0);
+  const expectedTotal = rent + water + power;
+  if (amount !== expectedTotal) return res.status(400).json({ error: `Enter the full current balance of KSh ${expectedTotal.toLocaleString('en-KE')}. For a different or partial amount, contact your landlord.` });
+  const cycleDueAt = tenant.nextDueAt || null;
+  if (!cycleDueAt) return res.status(409).json({ error: 'Your rent due date is missing. Ask your landlord to update your tenant record.' });
+
+  const paymentRef = db.collection('landlords').doc(landlordUid).collection('payments').doc();
+  const receiptRef = db.collection('mpesaReceiptClaims').doc(crypto.createHash('sha256').update(receiptCode).digest('hex'));
+  let duplicate = false;
+  await db.runTransaction(async transaction => {
+    const receipt = await transaction.get(receiptRef);
+    if (receipt.exists) { duplicate = true; return; }
+    transaction.create(receiptRef, { landlordUid, tenantUid: req.user.uid, paymentId: paymentRef.id, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    transaction.create(paymentRef, {
+      tenantId: tenantDoc.id, tenantUid: req.user.uid, tenantName: tenant.fullName || '',
+      tenantPhone: tenant.phone || '', houseNumber: tenant.houseNumber || '',
+      amount, expectedTotal, cycleDueAt, receiptCode, smsText,
+      status: 'pending', submittedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+  if (duplicate) return res.status(409).json({ error: 'That M-Pesa transaction code has already been submitted.' });
+  return res.status(201).json({ submitted: true, status: 'pending' });
+}));
+
+app.post('/api/landlords/payment-submissions/:paymentId/review', requireAuth, asyncRoute(async (req, res) => {
+  const paymentId = String(req.params.paymentId || '');
+  if (!/^[A-Za-z0-9_-]{1,150}$/.test(paymentId)) return res.status(400).json({ error: 'Invalid payment submission.' });
+  const decision = String(req.body.decision || '');
+  if (!['confirmed', 'rejected'].includes(decision)) return res.status(400).json({ error: 'Choose confirm or reject.' });
+  const paymentRef = db.collection('landlords').doc(req.user.uid).collection('payments').doc(paymentId);
+  let failure = '';
+  let thankYouSms = null;
+  await db.runTransaction(async transaction => {
+    const payment = await transaction.get(paymentRef);
+    if (!payment.exists || payment.get('status') !== 'pending') { failure = 'This payment is no longer waiting for review.'; return; }
+    const tenantRef = db.collection('landlords').doc(req.user.uid).collection('tenants').doc(String(payment.get('tenantId') || ''));
+    const tenant = await transaction.get(tenantRef);
+    if (!tenant.exists || tenant.get('tenantUid') !== payment.get('tenantUid')) { failure = 'The linked tenant account is no longer active.'; return; }
+    if (decision === 'confirmed') {
+      const currentDue = tenant.get('nextDueAt');
+      const submittedDue = payment.get('cycleDueAt');
+      if (!currentDue || !submittedDue || currentDue.toMillis() !== submittedDue.toMillis()) { failure = 'This payment is for an older rent cycle. Review it against the M-Pesa statement before updating rent.'; return; }
+      const nextDue = currentDue.toDate();
+      nextDue.setDate(nextDue.getDate() + 30);
+      thankYouSms = {
+        phone: tenant.get('phone'),
+        tenantName: tenant.get('fullName') || payment.get('tenantName') || 'Tenant',
+        houseNumber: tenant.get('houseNumber') || payment.get('houseNumber') || 'your house',
+        amount: Number(payment.get('amount') || 0),
+        nextDueAt: nextDue
+      };
+      transaction.update(tenantRef, {
+        nextDueAt: admin.firestore.Timestamp.fromDate(nextDue), lastPaymentAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastPaymentAmount: payment.get('amount'), lastPaymentStatus: 'confirmed', lastPaidCycleDueAt: currentDue,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    transaction.update(paymentRef, {
+      status: decision, reviewedAt: admin.firestore.FieldValue.serverTimestamp(), reviewedBy: req.user.uid,
+      ...(decision === 'confirmed' ? { thankYouSmsStatus: process.env.AT_PAYMENT_THANK_YOU === 'true' ? 'sending' : 'disabled' } : {})
+    });
+  });
+  if (failure) return res.status(409).json({ error: failure });
+  let thankYouSmsStatus = decision === 'confirmed' ? 'disabled' : null;
+  if (decision === 'confirmed' && process.env.AT_PAYMENT_THANK_YOU === 'true') {
+    try {
+      const phone = normalizePhone(thankYouSms.phone);
+      const dueDate = thankYouSms.nextDueAt.toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Nairobi' });
+      const message = `FEDNICE: Hello ${String(thankYouSms.tenantName).slice(0, 80)}, your payment of KSh ${thankYouSms.amount.toLocaleString('en-KE')} for ${String(thankYouSms.houseNumber).slice(0, 60)} is confirmed. Thank you! Your next rent is due ${dueDate}.`;
+      await sms.send({ to: [phone], message, ...(process.env.AT_SENDER_ID ? { from: process.env.AT_SENDER_ID } : {}) });
+      thankYouSmsStatus = 'provider_accepted';
+    } catch (error) {
+      thankYouSmsStatus = 'failed';
+      console.error('Payment thank-you SMS request failed:', error.message);
+    }
+    await paymentRef.update({ thankYouSmsStatus, thankYouSmsUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }).catch(error => {
+      console.error('Could not save payment thank-you SMS status:', error.message);
+    });
+  }
+  return res.json({ reviewed: true, status: decision, tenantThankYou: decision === 'confirmed', thankYouSmsStatus });
+}));
+
+app.get('/api/landlords/payment-submissions', requireAuth, asyncRoute(async (req, res) => {
+  const snapshot = await db.collection('landlords').doc(req.user.uid).collection('payments').get();
+  const submissions = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id, tenantId: data.tenantId, tenantName: data.tenantName, tenantPhone: data.tenantPhone,
+      houseNumber: data.houseNumber, amount: data.amount, expectedTotal: data.expectedTotal,
+      receiptCode: data.receiptCode, smsText: data.smsText, status: data.status,
+      thankYouSmsStatus: data.thankYouSmsStatus || null,
+      submittedAt: data.submittedAt?.toDate?.().toISOString() || null,
+      reviewedAt: data.reviewedAt?.toDate?.().toISOString() || null
+    };
+  }).sort((a,b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || ''))).slice(0,30);
+  return res.json({ submissions });
+}));
+
 app.get('/api/tenants/me', requireAuth, asyncRoute(async (req, res) => {
   const match = await db.collectionGroup('tenants').where('tenantUid', '==', req.user.uid).limit(1).get();
   if (match.empty) return res.status(404).json({ error: 'No tenant account is linked to this login.' });
   const tenantDoc = match.docs[0];
   const landlordUid = tenantDoc.ref.parent.parent.id;
-  const [landlord, house] = await Promise.all([
+  const [landlord, house, paymentSnapshot] = await Promise.all([
     db.collection('landlords').doc(landlordUid).get(),
-    db.collection('landlords').doc(landlordUid).collection('houses').doc(String(tenantDoc.get('houseId') || '')).get()
+    db.collection('landlords').doc(landlordUid).collection('houses').doc(String(tenantDoc.get('houseId') || '')).get(),
+    db.collection('landlords').doc(landlordUid).collection('payments').where('tenantId', '==', tenantDoc.id).get()
   ]);
   const data = tenantDoc.data();
+  const payments = paymentSnapshot.docs.map(doc => {
+    const payment = doc.data();
+    return { id: doc.id, amount: payment.amount, status: payment.status, submittedAt: payment.submittedAt?.toDate?.().toISOString() || null, reviewedAt: payment.reviewedAt?.toDate?.().toISOString() || null };
+  }).sort((a,b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || ''))).slice(0,10);
   return res.json({
     fullName: data.fullName || '', phone: data.phone || '', houseNumber: house.exists ? house.get('houseNumber') : data.houseNumber || '',
     monthlyRent: Number(data.monthlyRent || (house.exists ? house.get('monthlyRent') : 0) || 0),
@@ -182,7 +298,7 @@ app.get('/api/tenants/me', requireAuth, asyncRoute(async (req, res) => {
     joinedAt: data.joinedAt?.toDate?.().toISOString() || null,
     nextDueAt: data.nextDueAt?.toDate?.().toISOString() || null,
     propertyName: landlord.exists ? landlord.get('propertyName') || 'Your landlord' : 'Your landlord',
-    landlordPhone: landlord.exists ? landlord.get('phone') || '' : ''
+    landlordPhone: landlord.exists ? landlord.get('phone') || '' : '', payments
   });
 }));
 
