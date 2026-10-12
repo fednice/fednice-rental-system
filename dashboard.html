@@ -209,9 +209,9 @@
         event.preventDefault(); if (saving || !firebase.auth().currentUser) return;
         const number = document.getElementById('house-number').value.trim();
         const rent = Number(document.getElementById('house-rent').value);
-        const waterMeter = document.getElementById('water-meter').value.trim();
-        const powerMeter = document.getElementById('power-meter').value.trim();
-        const photoFile = document.getElementById('house-photo').files[0];
+        const waterMeter = document.getElementById('water-meter')?.value.trim() || '';
+        const powerMeter = document.getElementById('power-meter')?.value.trim() || '';
+        const photoFile = document.getElementById('house-photo')?.files?.[0] || null;
         const message = document.getElementById('house-message');
         if (houses.some(house => String(house.houseNumber).toLowerCase() === number.toLowerCase())) { message.textContent = 'That house number is already in your list.'; return; }
         if (!Number.isSafeInteger(rent) || rent < 1) { message.textContent = 'Enter a valid monthly rent amount.'; return; }
