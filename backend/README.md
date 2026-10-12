@@ -1,10 +1,10 @@
-# FEDNICE landlord activation API
+# FEDNICE rental access API
 
-This separate Node service sends and checks one-time activation SMS codes. It uses Africa's Talking as the SMS adapter and the existing `fednice-rental-system` Firebase project through the Firebase Admin SDK. Firebase stays on Spark; this API does not create a Firebase project or use Cloud Functions.
+This Node service supports landlord activation and tenant access codes. It uses the existing `fednice-rental-system` Firebase project through the Firebase Admin SDK. Firebase stays on Spark; tenant setup codes are shown in the landlord dashboard and can be shared privately without SMS charges.
 
 ## Required setup before activation can work
 
-1. Create an Africa's Talking account and configure its SMS product. For development, use its sandbox; production SMS requires a production account and airtime. Keep the API key private.
+1. Create an Africa's Talking account and configure its SMS product only if landlord activation SMS is needed. For development, use its sandbox; production SMS requires a production account and airtime. Keep the API key private.
 2. Deploy this folder as a Node web service with a stable HTTPS URL. Do not put secrets in GitHub Pages or commit a service-account key. A free backend host may sleep or be unsuitable for production; choose an always-on service for real landlords.
 3. Set these server environment variables in the host dashboard:
    - `FIREBASE_SERVICE_ACCOUNT_JSON`: service-account JSON for the existing Firebase project only. Restrict this credential and never commit it.
@@ -15,10 +15,10 @@ This separate Node service sends and checks one-time activation SMS codes. It us
    - `AT_SENDER_ID`: optional approved sender ID.
    - `PORT`: supplied by most hosts; defaults to 3000 locally.
 4. Set `window.FEDNICE_API_BASE` in the root `api-config.js` to the deployed HTTPS API base URL.
-5. Enable Email/Password in Firebase Authentication and add the GitHub Pages domain under Authorized domains.
-6. Publish the root `firestore.rules` for the landlord portal. It allows each signed-in landlord to access only their own rental records and keeps activation challenges private to the Admin SDK. The former public `codes` generator/checkout has been retired; its existing Firestore documents are not deleted, but the browser cannot access them.
+5. Keep Firebase Authentication enabled and add the GitHub Pages domain under Authorized domains. Landlord sign-in stays email/password. Tenant phone/password credentials are verified by this API, which returns a short-lived Firebase custom token after successful sign-in.
+6. Publish the root `firestore.rules` for the landlord portal. It allows each signed-in landlord to access only their own rental records and denies browser access to tenant access codes and password credential records. Tenant rental details are read through the authenticated API, which links each Firebase UID to exactly one tenant record. The former public `codes` generator/checkout has been retired; its existing Firestore documents are not deleted, but the browser cannot access them.
 
-The API keeps OTP hashes, five-minute expiry, a one-minute resend delay, and a five-attempt limit in Firestore. It never stores the password. The activation ticket is short-lived and consumed atomically when creating the landlord profile. Trial dates are recorded as 90 days from account activation. The KSh 1,000 charge is not collected automatically by this code; payment integration is a separate step.
+Landlord activation OTPs are hashed, expire after five minutes, and have resend and attempt limits. Tenant setup codes are eight characters, stored only as an HMAC, expire after seven days, and are consumed atomically once a tenant login is created. Tenant passwords are salted and hashed with scrypt; they are never stored in plaintext. Tenant sign-in allows five failed attempts before a 15-minute lock. The tenant phone must match the landlord's record, but this no-SMS flow does not verify who owns that phone number; the landlord should share the setup code privately with the intended tenant. When a landlord deletes a vacated tenant, the API disables that tenant's Firebase account and removes the stored password hash. The KSh 1,000 charge is not collected automatically by this code; payment integration is a separate step.
 
 ## Local run
 

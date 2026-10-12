@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0a0a0a">
+  <title>Tenant account setup | FEDNICE</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:14px 22px;background:#111;border-bottom:1px solid #292929}.logo{width:140px;height:55px;object-fit:contain;object-position:left center}.card{width:min(500px,calc(100% - 32px));margin:8vh auto 36px;padding:28px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 10px;font-size:25px}p{color:#aaa;line-height:1.55}.help{margin:0;font-size:13px}form{display:grid;gap:13px;margin-top:22px}label{display:grid;gap:6px;color:#ccc;font-size:13px;font-weight:650}input{width:100%;padding:12px;border:1px solid #444;border-radius:8px;background:#1e1e1e;color:#fff;font:inherit}input:focus{outline:2px solid #ff6a00;border-color:#ff6a00}.button{padding:13px;border:0;border-radius:8px;background:#ff6a00;color:#111;font:inherit;font-weight:800;cursor:pointer}.button:disabled{opacity:.6}.message{min-height:20px;margin:0;color:#ffad70;font-size:13px}.message.error{color:#ff9b8a}.link{color:#ff9a53}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{color:#ff9a53;text-decoration:none}
+  </style>
+</head>
+<body>
+  <header class="topbar"><a href="index.html"><img class="logo" src="logo.png" alt="FEDNICE"></a></header>
+  <main class="card"><h1>Set up your tenant login</h1><p>Ask your landlord for your one-time setup code. Enter the phone number saved on your tenant record, then create a password for future sign-ins.</p>
+    <form id="register-form"><label>One-time setup code<input id="code" autocomplete="one-time-code" maxlength="8" minlength="8" placeholder="8-character code" required></label><label>Your registered phone number<input id="phone" type="tel" autocomplete="tel" placeholder="07… or +254…" required></label><label>Create a password<input id="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required><span class="help">Use at least 8 characters and keep it private.</span></label><label>Confirm password<input id="confirm-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><button class="button" id="submit-button" type="submit">Create tenant login</button><p id="message" class="message" role="status" aria-live="polite"></p></form>
+    <p>Already set up? <a class="link" href="tenant-login.html">Sign in here</a>.</p>
+  </main>
+  <footer class="footer">For any assistance call <a href="tel:0114462079">0114462079</a> or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></footer>
+  <script src="./api-config.js"></script><script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script><script src="./firebase.js"></script>
+  <script>
+    (() => {
+      const apiBase = String(window.FEDNICE_API_BASE || '').replace(/\/$/, '');
+      const form = document.getElementById('register-form');
+      const message = document.getElementById('message');
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const button = document.getElementById('submit-button');
+        const code = document.getElementById('code').value.trim().toUpperCase();
+        const phone = document.getElementById('phone').value.trim();
+        const password = document.getElementById('password').value;
+        if (password !== document.getElementById('confirm-password').value) { message.textContent = 'The passwords do not match.'; message.classList.add('error'); return; }
+        if (!apiBase) { message.textContent = 'Tenant account service is not configured. Contact FEDNICE for help.'; message.classList.add('error'); return; }
+        button.disabled = true; message.classList.remove('error'); message.textContent = 'Creating your tenant login…';
+        try {
+          const response = await fetch(`${apiBase}/api/tenants/register`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,phone,password})});
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Could not create the tenant login.');
+          message.textContent = 'Account created. Signing you in…';
+          const loginResponse = await fetch(`${apiBase}/api/tenants/login`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,password})});
+          const loginData = await loginResponse.json().catch(() => ({}));
+          if (!loginResponse.ok) throw new Error('Your account was created. Please sign in using your phone number and password.');
+          await firebase.auth().signInWithCustomToken(loginData.customToken);
+          window.location.replace('tenant-dashboard.html');
+        } catch (error) { message.textContent = error.message || 'Could not create the tenant login.'; message.classList.add('error'); button.disabled = false; }
+      });
+    })();
+  </script>
+</body>
+</html>

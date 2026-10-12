@@ -19,6 +19,13 @@ app.use(express.json({ limit: '16kb' }));
 
 const hash = value => crypto.createHmac('sha256', process.env.OTP_SECRET).update(value).digest('hex');
 const phoneKey = phone => crypto.createHash('sha256').update(phone).digest('hex');
+const tenantCodeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function makeTenantCode() {
+  return Array.from({ length: 8 }, () => tenantCodeAlphabet[crypto.randomInt(tenantCodeAlphabet.length)]).join('');
+}
+function hashPassword(password, salt) {
+  return crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1, maxmem: 32 * 1024 * 1024 });
+}
 function normalizePhone(value) {
   const digits = String(value || '').replace(/[\s()-]/g, '');
   if (/^07\d{8}$/.test(digits)) return `+254${digits.slice(1)}`;
@@ -35,6 +42,149 @@ function requireAuth(req, res, next) {
 }
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+app.post('/api/tenant-access-codes', requireAuth, asyncRoute(async (req, res) => {
+  const landlordRef = db.collection('landlords').doc(req.user.uid);
+  const landlord = await landlordRef.get();
+  if (!landlord.exists) return res.status(403).json({ error: 'An active landlord account is required.' });
+  const tenantId = String(req.body.tenantId || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,150}$/.test(tenantId)) return res.status(400).json({ error: 'Choose a valid tenant record.' });
+  const tenantRef = landlordRef.collection('tenants').doc(tenantId);
+  const tenant = await tenantRef.get();
+  if (!tenant.exists) return res.status(404).json({ error: 'Tenant record not found.' });
+  if (tenant.get('tenantUid')) return res.status(409).json({ error: 'This tenant already has a login account.' });
+
+  const codesRef = db.collection('tenantAccessCodes');
+  const code = makeTenantCode();
+  const codeHash = hash(`tenant-access:${code}`);
+  const codeRef = codesRef.doc(codeHash);
+  await codeRef.create({
+    codeHash, landlordUid: req.user.uid, tenantId, used: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  });
+  return res.status(201).json({ code, expiresInDays: 7 });
+}));
+
+app.post('/api/tenants/register', asyncRoute(async (req, res) => {
+  const code = String(req.body.code || '').trim().toUpperCase();
+  let phone;
+  try { phone = normalizePhone(req.body.phone); }
+  catch (error) { return res.status(400).json({ error: error.message }); }
+  const password = String(req.body.password || '');
+  if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) return res.status(400).json({ error: 'Enter the eight-character code from your landlord.' });
+  if (password.length < 8 || password.length > 128) return res.status(400).json({ error: 'Choose a password with at least 8 characters.' });
+
+  const codeHash = hash(`tenant-access:${code}`);
+  const codeRef = db.collection('tenantAccessCodes').doc(codeHash);
+  const codeDoc = await codeRef.get();
+  if (!codeDoc.exists || codeDoc.get('used') || codeDoc.get('expiresAt').toMillis() <= Date.now()) return res.status(400).json({ error: 'This code is invalid, expired, or already used. Ask your landlord for a new one.' });
+  const data = codeDoc.data();
+  const tenantRef = db.collection('landlords').doc(data.landlordUid).collection('tenants').doc(data.tenantId);
+  const tenant = await tenantRef.get();
+  if (!tenant.exists || tenant.get('tenantUid')) return res.status(409).json({ error: 'This tenant record already has an account or is unavailable.' });
+  let tenantPhone;
+  try { tenantPhone = normalizePhone(tenant.get('phone')); }
+  catch { return res.status(409).json({ error: 'The landlord needs to add a valid phone number to your tenant record first.' }); }
+  if (phone !== tenantPhone) return res.status(403).json({ error: 'Use the phone number the landlord registered for you.' });
+  const credentialsRef = db.collection('tenantCredentials').doc(phoneKey(phone));
+  if ((await credentialsRef.get()).exists) return res.status(409).json({ error: 'This phone number already has a tenant login. Contact your landlord for help.' });
+  const authUid = `tenant_${crypto.randomUUID().replace(/-/g, '')}`;
+  const salt = crypto.randomBytes(16).toString('hex');
+  const passwordHash = hashPassword(password, salt).toString('hex');
+  let user;
+  try { user = await admin.auth().createUser({ uid: authUid, displayName: String(tenant.get('fullName') || '').slice(0, 120) }); }
+  catch (error) { if (error.code === 'auth/uid-already-exists') return res.status(409).json({ error: 'Please request a new setup code from your landlord.' }); throw error; }
+  let failure = '';
+  try {
+    await db.runTransaction(async transaction => {
+      const [freshCode, freshTenant, freshCredentials] = await Promise.all([transaction.get(codeRef), transaction.get(tenantRef), transaction.get(credentialsRef)]);
+      if (!freshCode.exists || freshCode.get('used') || freshCode.get('expiresAt').toMillis() <= Date.now()) { failure = 'This code expired or was already used. Ask your landlord for a new one.'; return; }
+      if (!freshTenant.exists || freshTenant.get('tenantUid')) { failure = 'This tenant record already has an account or is unavailable.'; return; }
+      try { if (normalizePhone(freshTenant.get('phone')) !== phone) { failure = 'The phone number on the tenant record changed. Ask your landlord for a new code.'; return; } }
+      catch { failure = 'The phone number on the tenant record is no longer valid. Ask your landlord for help.'; return; }
+      if (freshCredentials.exists) { failure = 'This phone number already has a tenant login. Contact your landlord for help.'; return; }
+      transaction.update(codeRef, { used: true, usedAt: admin.firestore.FieldValue.serverTimestamp(), tenantUid: user.uid });
+      transaction.update(tenantRef, { tenantUid: user.uid, accountCreatedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      transaction.create(credentialsRef, { authUid: user.uid, landlordUid: data.landlordUid, tenantId: data.tenantId, salt, passwordHash, failedAttempts: 0, lockedUntil: null, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    });
+    if (failure) throw new Error(failure);
+  } catch (error) {
+    await admin.auth().deleteUser(user.uid).catch(() => {});
+    if (failure) return res.status(409).json({ error: failure });
+    throw error;
+  }
+  return res.status(201).json({ registered: true });
+}));
+
+app.post('/api/tenants/login', asyncRoute(async (req, res) => {
+  let phone;
+  try { phone = normalizePhone(req.body.phone); }
+  catch { return res.status(401).json({ error: 'Invalid phone number or password.' }); }
+  const password = String(req.body.password || '');
+  if (password.length > 128) return res.status(401).json({ error: 'Invalid phone number or password.' });
+  const ref = db.collection('tenantCredentials').doc(phoneKey(phone));
+  const doc = await ref.get();
+  if (!doc.exists) return res.status(401).json({ error: 'Invalid phone number or password.' });
+  const data = doc.data();
+  const activeTenant = await db.collection('landlords').doc(data.landlordUid).collection('tenants').doc(data.tenantId).get();
+  if (!activeTenant.exists || activeTenant.get('tenantUid') !== data.authUid) {
+    await admin.auth().updateUser(data.authUid, { disabled: true }).catch(() => {});
+    await ref.delete().catch(() => {});
+    return res.status(401).json({ error: 'This tenant login is no longer active. Contact your landlord.' });
+  }
+  if (data.lockedUntil?.toMillis?.() > Date.now()) return res.status(429).json({ error: 'Too many tries. Please wait 15 minutes before trying again.' });
+  const candidate = hashPassword(password, data.salt);
+  const expected = Buffer.from(data.passwordHash, 'hex');
+  if (candidate.length !== expected.length || !crypto.timingSafeEqual(candidate, expected)) {
+    await db.runTransaction(async transaction => {
+      const current = await transaction.get(ref);
+      if (!current.exists) return;
+      const attempts = Number(current.get('failedAttempts') || 0) + 1;
+      transaction.update(ref, { failedAttempts: attempts >= 5 ? 0 : attempts, lockedUntil: attempts >= 5 ? admin.firestore.Timestamp.fromMillis(Date.now() + 15 * 60 * 1000) : null });
+    });
+    return res.status(401).json({ error: 'Invalid phone number or password.' });
+  }
+  await ref.update({ failedAttempts: 0, lockedUntil: null });
+  const customToken = await admin.auth().createCustomToken(data.authUid);
+  return res.json({ customToken });
+}));
+
+app.post('/api/tenants/revoke', requireAuth, asyncRoute(async (req, res) => {
+  const tenantId = String(req.body.tenantId || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,150}$/.test(tenantId)) return res.status(400).json({ error: 'Choose a valid tenant record.' });
+  const tenantRef = db.collection('landlords').doc(req.user.uid).collection('tenants').doc(tenantId);
+  const tenant = await tenantRef.get();
+  if (!tenant.exists) return res.status(404).json({ error: 'Tenant record not found.' });
+  const tenantUid = tenant.get('tenantUid');
+  if (!tenantUid) return res.json({ revoked: false });
+  await admin.auth().updateUser(tenantUid, { disabled: true }).catch(error => { if (error.code !== 'auth/user-not-found') throw error; });
+  const credentials = await db.collection('tenantCredentials').where('authUid', '==', tenantUid).limit(1).get();
+  if (!credentials.empty) await credentials.docs[0].ref.delete();
+  await tenantRef.update({ tenantUid: admin.firestore.FieldValue.delete(), tenantAccessRevokedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  return res.json({ revoked: true });
+}));
+
+app.get('/api/tenants/me', requireAuth, asyncRoute(async (req, res) => {
+  const match = await db.collectionGroup('tenants').where('tenantUid', '==', req.user.uid).limit(1).get();
+  if (match.empty) return res.status(404).json({ error: 'No tenant account is linked to this login.' });
+  const tenantDoc = match.docs[0];
+  const landlordUid = tenantDoc.ref.parent.parent.id;
+  const [landlord, house] = await Promise.all([
+    db.collection('landlords').doc(landlordUid).get(),
+    db.collection('landlords').doc(landlordUid).collection('houses').doc(String(tenantDoc.get('houseId') || '')).get()
+  ]);
+  const data = tenantDoc.data();
+  return res.json({
+    fullName: data.fullName || '', phone: data.phone || '', houseNumber: house.exists ? house.get('houseNumber') : data.houseNumber || '',
+    monthlyRent: Number(data.monthlyRent || (house.exists ? house.get('monthlyRent') : 0) || 0),
+    waterBill: data.waterBill ?? null, powerBill: data.powerBill ?? null,
+    joinedAt: data.joinedAt?.toDate?.().toISOString() || null,
+    nextDueAt: data.nextDueAt?.toDate?.().toISOString() || null,
+    propertyName: landlord.exists ? landlord.get('propertyName') || 'Your landlord' : 'Your landlord',
+    landlordPhone: landlord.exists ? landlord.get('phone') || '' : ''
+  });
+}));
 
 app.post('/api/activation/send', asyncRoute(async (req, res) => {
   let phone;

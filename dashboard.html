@@ -37,7 +37,7 @@
       <div class="layout">
         <div>
           <section class="panel" aria-labelledby="houses-title"><div class="section-heading"><h2 id="houses-title">Your houses</h2><span id="house-count" class="section-count">0 houses</span></div><div id="house-list" class="house-grid"></div></section>
-          <section class="panel" aria-labelledby="tenants-title"><div class="section-heading"><h2 id="tenants-title">Tenants &amp; rent dates</h2><span id="tenant-count" class="section-count">0 tenants</span></div><p class="help" style="margin:-5px 0 13px">When rent is due soon or overdue, select WhatsApp reminder to open a ready-to-send message. Review it and tap Send in WhatsApp.</p><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>House</th><th>Joined</th><th>Rent due</th><th>Rent</th><th>Actions</th></tr></thead><tbody id="tenant-rows"></tbody></table></div><div id="tenant-empty" class="empty" hidden>No tenants yet. Add a tenant using the form.</div></section>
+          <section class="panel" aria-labelledby="tenants-title"><div class="section-heading"><h2 id="tenants-title">Tenants &amp; rent dates</h2><span id="tenant-count" class="section-count">0 tenants</span></div><p class="help" style="margin:-5px 0 13px">When rent is due soon or overdue, select WhatsApp reminder to open a ready-to-send message. Review it and tap Send in WhatsApp. Generate a one-time setup code for a tenant so they can create their phone-and-password login.</p><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>House</th><th>Joined</th><th>Rent due</th><th>Rent</th><th>Actions</th></tr></thead><tbody id="tenant-rows"></tbody></table></div><div id="tenant-empty" class="empty" hidden>No tenants yet. Add a tenant using the form.</div><div id="tenant-access-result" class="notice" style="margin:14px 0 0" hidden><strong>One-time tenant setup code</strong><p id="tenant-access-code" style="margin:8px 0;font-size:1.5rem;letter-spacing:.16em;font-weight:800;color:#ff9a53"></p><p id="tenant-access-expiry" class="help"></p><button id="tenant-access-copy" class="record-button" type="button">Copy setup code</button></div></section>
           <section class="panel" aria-labelledby="billing-title"><div class="section-heading"><h2 id="billing-title">Billing &amp; current rent cycle</h2></div><p class="help">Select a tenant to review rent and update any water or power bill amounts for the current cycle. Only you as landlord can edit these charges.</p><form id="billing-form"><label>Tenant<select id="billing-tenant" required><option value="">Add a tenant first</option></select></label><div id="billing-summary" class="notice" style="margin:0">Select a tenant to see their monthly rent and next due date.</div><label>Water bill (KSh, optional)<input id="billing-water-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><label>Power bill (KSh, optional)<input id="billing-power-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><button id="save-billing" class="button primary" type="submit">Save billing details</button><p id="billing-message" class="form-message" role="status" aria-live="polite"></p></form></section>
         </div>
         <aside>
@@ -214,7 +214,8 @@
           const totalDue = rent + (waterBill || 0) + (powerBill || 0);
           const reminderText = `Hello ${tenant.fullName}, this is a friendly rent reminder from ${landlordPropertyName}. Rent for ${houseName} is due ${formatDate(due)}.\nRent: KSh ${rent.toLocaleString('en-KE')}${utilityLines.length ? `\n${utilityLines.join('\n')}` : ''}\nTotal due: KSh ${totalDue.toLocaleString('en-KE')}. If you have already paid, please ignore this reminder and share your payment confirmation with your landlord. Thank you.`;
           const reminderAction = phone ? `<a class="record-button" href="https://wa.me/${phone}?text=${encodeURIComponent(reminderText)}" target="_blank" rel="noopener noreferrer">WhatsApp reminder</a>` : '<span class="help">Check phone number</span>';
-          return `<tr><td><strong>${escapeHtml(tenant.fullName)}</strong><br><span style="color:#999">ID: ${escapeHtml(tenant.idNumber)}</span></td><td>${escapeHtml(houseName)}</td><td>${formatDate(joined)}</td><td>${rentStatus(due)}</td><td>KSh ${rent.toLocaleString('en-KE')}</td><td><div class="record-actions">${reminderAction}<button class="record-button" type="button" data-edit-tenant="${escapeHtml(tenant.id)}">Edit</button><button class="record-button danger" type="button" data-delete-tenant="${escapeHtml(tenant.id)}">Delete</button></div></td></tr>`;
+          const accessAction = tenant.tenantUid ? '<span class="help">Tenant login ready</span>' : `<button class="record-button" type="button" data-generate-tenant-code="${escapeHtml(tenant.id)}">Generate login code</button>`;
+          return `<tr><td><strong>${escapeHtml(tenant.fullName)}</strong><br><span style="color:#999">ID: ${escapeHtml(tenant.idNumber)}</span></td><td>${escapeHtml(houseName)}</td><td>${formatDate(joined)}</td><td>${rentStatus(due)}</td><td>KSh ${rent.toLocaleString('en-KE')}</td><td><div class="record-actions">${reminderAction}${accessAction}<button class="record-button" type="button" data-edit-tenant="${escapeHtml(tenant.id)}">Edit</button><button class="record-button danger" type="button" data-delete-tenant="${escapeHtml(tenant.id)}">Delete</button></div></td></tr>`;
         }).join('');
         document.getElementById('tenant-empty').hidden = tenants.length > 0;
         updateHouseOptions();
@@ -247,7 +248,7 @@
         editingRecord = {type:'tenant',id};
         document.getElementById('editor-title').textContent = `Edit ${tenant.fullName}`;
         const available = houses.filter(house => house.id === tenant.houseId || !tenants.some(other => other.id !== tenant.id && other.houseId === house.id));
-        editorFields.innerHTML = `<label>Tenant full name<input id="edit-tenant-name" maxlength="120" required value="${escapeHtml(tenant.fullName)}"></label><label>National ID number<input id="edit-tenant-id" maxlength="20" required value="${escapeHtml(tenant.idNumber)}"></label><label>Phone number<input id="edit-tenant-phone" type="tel" maxlength="20" required value="${escapeHtml(tenant.phone)}"></label><label>Assigned house<select id="edit-tenant-house" required>${available.map(house => `<option value="${escapeHtml(house.id)}" ${house.id === tenant.houseId ? 'selected' : ''}>${escapeHtml(house.houseNumber)} · KSh ${Number(house.monthlyRent).toLocaleString('en-KE')}</option>`).join('')}</select></label><label>Joining date<input id="edit-tenant-joined" type="date" required value="${dateInputValue(tenant.joinedAt)}"></label><p class="help">Changing the joining date resets the next rent due date to 30 days after that date. Manage rent and utility bills in Billing &amp; current rent cycle.</p>`;
+        editorFields.innerHTML = `<label>Tenant full name<input id="edit-tenant-name" maxlength="120" required value="${escapeHtml(tenant.fullName)}"></label><label>National ID number<input id="edit-tenant-id" maxlength="20" required value="${escapeHtml(tenant.idNumber)}"></label><label>Phone number<input id="edit-tenant-phone" type="tel" maxlength="20" required value="${escapeHtml(tenant.phone)}" ${tenant.tenantUid ? 'readonly' : ''}></label><label>Assigned house<select id="edit-tenant-house" required>${available.map(house => `<option value="${escapeHtml(house.id)}" ${house.id === tenant.houseId ? 'selected' : ''}>${escapeHtml(house.houseNumber)} · KSh ${Number(house.monthlyRent).toLocaleString('en-KE')}</option>`).join('')}</select></label><label>Joining date<input id="edit-tenant-joined" type="date" required value="${dateInputValue(tenant.joinedAt)}"></label><p class="help">${tenant.tenantUid ? 'Phone is locked because it is used for this tenant login.' : ''} Changing the joining date resets the next rent due date to 30 days after that date. Manage rent and utility bills in Billing &amp; current rent cycle.</p>`;
         editorMessage.textContent = '';
         editor.showModal();
       }
@@ -267,8 +268,15 @@
       }
       async function deleteTenant(id) {
         const tenant = tenants.find(item => item.id === id);
-        if (!tenant || !window.confirm(`Delete tenant record for ${tenant.fullName}? Their house will become vacant.`)) return;
+        if (!tenant || !window.confirm(`Has ${tenant.fullName} vacated? Deleting this tenant frees the house and disables their tenant login.`)) return;
         try {
+          if (tenant.tenantUid) {
+            if (!apiBase) throw new Error('The tenant account service is not configured. Their login was not removed, so the tenant record was kept.');
+            const token = await firebase.auth().currentUser.getIdToken();
+            const response = await fetch(`${apiBase}/api/tenants/revoke`, {method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({tenantId:id})});
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Could not disable this tenant login. The tenant record was kept.');
+          }
           await tenantsRef().doc(id).delete();
           await loadRecords();
           showNotice(`${tenant.fullName} was deleted and the house is now vacant.`);
@@ -331,8 +339,36 @@
       document.getElementById('tenant-rows').addEventListener('click', event => {
         const edit = event.target.closest('[data-edit-tenant]');
         const remove = event.target.closest('[data-delete-tenant]');
+        const generate = event.target.closest('[data-generate-tenant-code]');
         if (edit) openTenantEditor(edit.dataset.editTenant);
         if (remove) deleteTenant(remove.dataset.deleteTenant);
+        if (generate) generateTenantAccessCode(generate.dataset.generateTenantCode, generate);
+      });
+      let lastTenantAccessCode = '';
+      async function generateTenantAccessCode(tenantId, button) {
+        if (saving || !firebase.auth().currentUser) return;
+        saving = true; button.disabled = true; button.textContent = 'Generating…';
+        const result = document.getElementById('tenant-access-result');
+        result.hidden = true;
+        try {
+          const token = await firebase.auth().currentUser.getIdToken();
+          const response = await fetch(`${apiBase}/api/tenant-access-codes`, {method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({tenantId})});
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Could not generate a tenant code.');
+          lastTenantAccessCode = data.code;
+          document.getElementById('tenant-access-code').textContent = data.code;
+          document.getElementById('tenant-access-expiry').textContent = `Give this to the tenant. It can be used once to set up their login and expires in ${data.expiresInDays} days. Their phone must match the number saved on this tenant record.`;
+          result.hidden = false;
+          await loadRecords();
+          showNotice('Tenant setup code generated. Copy it and share it privately with the tenant.');
+        } catch (error) {
+          showNotice(error.message || 'Could not generate a tenant code.', true);
+        } finally { saving = false; button.disabled = false; button.textContent = 'Generate login code'; }
+      }
+      document.getElementById('tenant-access-copy').addEventListener('click', async () => {
+        if (!lastTenantAccessCode) return;
+        try { await navigator.clipboard.writeText(lastTenantAccessCode); showNotice('Tenant setup code copied. Share it privately with the tenant.'); }
+        catch { showNotice('Copy was blocked. Select and copy the displayed code manually.', true); }
       });
       document.getElementById('editor-close').addEventListener('click', () => editor.close());
       document.getElementById('editor-cancel').addEventListener('click', () => editor.close());
