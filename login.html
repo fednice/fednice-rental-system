@@ -29,6 +29,7 @@ function friendlyLoginError(error,authenticated){
   if(['auth/invalid-credential','auth/user-not-found','auth/wrong-password','auth/invalid-email'].includes(code)) return 'Invalid login credentials. Check your email and password.';
   if(code==='auth/too-many-requests') return 'Too many attempts. Please wait a little and try again.';
   if(code==='auth/network-request-failed') return 'Connection problem. Check your internet and try again.';
+  if(authenticated&&code==='email-verification-required') return 'We sent a fresh verification link to your email. Open it, then sign in again.';
   if(authenticated&&code==='landlord-profile-missing') return 'No active landlord account was found. Please complete registration or contact Fednice Solutions.';
   if(authenticated&&code==='activation-service-unavailable') return 'The landlord login service is temporarily unavailable. Please try again later.';
   return 'We could not sign you in. Check your details and try again, or contact Fednice Solutions.';
@@ -43,6 +44,7 @@ form.addEventListener('submit',async event=>{
     const token=await firebase.auth().currentUser.getIdToken();
     const response=await fetch(FEDNICE_API_BASE.replace(/\/$/,'')+'/api/landlords/me',{headers:{Authorization:'Bearer '+token}});
     if(response.status===401||response.status===404) throw Object.assign(new Error(),{code:'landlord-profile-missing'});
+    if(response.status===403){await firebase.auth().currentUser.sendEmailVerification();throw Object.assign(new Error(),{code:'email-verification-required'});}
     if(!response.ok) throw Object.assign(new Error(),{code:'activation-service-unavailable'});
     window.location.href='dashboard.html';
   }catch(error){await firebase.auth().signOut().catch(()=>{});message.textContent=friendlyLoginError(error,authenticated);button.disabled=false;}

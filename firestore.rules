@@ -1,23 +1,47 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Landlord profile creation and edits are server-only. The browser can read its own profile.
-    match /landlords/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
+    function landlordCanUse(uid) {
+      let profile = get(/databases/$(database)/documents/landlords/$(uid));
+      return request.auth != null
+        && request.auth.uid == uid
+        && profile.data != null
+        && (!('emailVerificationRequired' in profile.data)
+          || profile.data.emailVerificationRequired != true
+          || request.auth.token.email_verified == true);
+    }
 
-      // Rental records belong to one authenticated landlord.
-      match /{collectionName}/{recordId} {
-        allow read, create, update, delete: if request.auth != null && request.auth.uid == uid;
+    // Landlord profiles are created and maintained by the trusted backend.
+    match /landlords/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid
+        && (!('emailVerificationRequired' in resource.data)
+          || resource.data.emailVerificationRequired != true
+          || request.auth.token.email_verified == true);
+      allow create, update, delete: if false;
+
+      // The browser may manage only the landlord's own house and tenant records.
+      match /houses/{houseId} {
+        allow read, create, update, delete: if landlordCanUse(uid);
+      }
+      match /tenants/{tenantId} {
+        allow read, create, update, delete: if landlordCanUse(uid);
+      }
+
+      // Payment records are created/reviewed by the backend only.
+      match /payments/{paymentId} {
+        allow read, write: if false;
       }
     }
 
-    // Activation challenges are private to the trusted API using the Admin SDK.
-    match /activationChallenges/{challengeId} {
-      allow read, write: if false;
-    }
+    // OTP challenges, tenant credentials/access codes, and receipt claims are backend-only.
+    match /activationChallenges/{documentId} { allow read, write: if false; }
+    match /tenantAccessCodes/{documentId} { allow read, write: if false; }
+    match /tenantCredentials/{documentId} { allow read, write: if false; }
+    match /mpesaReceiptClaims/{documentId} { allow read, write: if false; }
+    match /landlordPaymentVerifications/{documentId} { allow read, write: if false; }
+    match /landlordPaymentClaims/{documentId} { allow read, write: if false; }
 
-    // Deny browser access to collections not explicitly opened above.
+    // Deny every collection not explicitly listed above.
     match /{document=**} {
       allow read, write: if false;
     }

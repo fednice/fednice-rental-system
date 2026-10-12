@@ -1,7 +1,6 @@
 const crypto = require('node:crypto');
 const express = require('express');
 const cors = require('cors');
-const jwt = require('jsonwebtoken');
 const admin = require('firebase-admin');
 const AfricaTalking = require('africastalking');
 
@@ -14,8 +13,48 @@ const at = AfricaTalking({ username: process.env.AT_USERNAME, apiKey: process.en
 const sms = at.SMS;
 const app = express();
 app.disable('x-powered-by');
+// Render terminates HTTPS at its proxy. Trust one proxy hop so req.ip is the client address.
+app.set('trust proxy', 1);
 app.use(cors({ origin: process.env.CORS_ORIGIN.split(',').map(value => value.trim()), methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json({ limit: '16kb' }));
+
+app.use((req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+  });
+  if (req.secure || req.get('x-forwarded-proto') === 'https') {
+    res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
+// Lightweight per-IP limits for public endpoints. Use a shared store if scaling to
+// multiple server instances; Firebase and per-account limits remain in place.
+const rateBuckets = new Map();
+function rateLimit({ windowMs, max, message }) {
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = `${req.ip}:${req.path}`;
+    let bucket = rateBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) bucket = { count: 0, resetAt: now + windowMs };
+    bucket.count += 1;
+    rateBuckets.set(key, bucket);
+    if (rateBuckets.size > 10000) {
+      for (const [bucketKey, value] of rateBuckets) if (value.resetAt <= now) rateBuckets.delete(bucketKey);
+    }
+    res.set('RateLimit-Limit', String(max));
+    res.set('RateLimit-Remaining', String(Math.max(0, max - bucket.count)));
+    res.set('RateLimit-Reset', String(Math.ceil((bucket.resetAt - now) / 1000)));
+    if (bucket.count > max) return res.status(429).json({ error: message });
+    next();
+  };
+}
+const tenantRegisterLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: 'Too many registration attempts. Please wait and try again.' });
+const tenantLoginLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, message: 'Too many login attempts. Please wait and try again.' });
 
 const hash = value => crypto.createHmac('sha256', process.env.OTP_SECRET).update(value).digest('hex');
 const phoneKey = phone => crypto.createHash('sha256').update(phone).digest('hex');
@@ -66,7 +105,7 @@ app.post('/api/tenant-access-codes', requireAuth, asyncRoute(async (req, res) =>
   return res.status(201).json({ code, expiresInDays: 7 });
 }));
 
-app.post('/api/tenants/register', asyncRoute(async (req, res) => {
+app.post('/api/tenants/register', tenantRegisterLimit, asyncRoute(async (req, res) => {
   const code = String(req.body.code || '').trim().toUpperCase();
   let phone;
   try { phone = normalizePhone(req.body.phone); }
@@ -117,7 +156,7 @@ app.post('/api/tenants/register', asyncRoute(async (req, res) => {
   return res.status(201).json({ registered: true });
 }));
 
-app.post('/api/tenants/login', asyncRoute(async (req, res) => {
+app.post('/api/tenants/login', tenantLoginLimit, asyncRoute(async (req, res) => {
   let phone;
   try { phone = normalizePhone(req.body.phone); }
   catch { return res.status(401).json({ error: 'Invalid phone number or password.' }); }
@@ -200,6 +239,207 @@ app.post('/api/tenants/payment-submissions', requireAuth, asyncRoute(async (req,
   });
   if (duplicate) return res.status(409).json({ error: 'That M-Pesa transaction code has already been submitted.' });
   return res.status(201).json({ submitted: true, status: 'pending' });
+}));
+
+function darajaConfigured() {
+  const requiredValues = ['DARAJA_CONSUMER_KEY','DARAJA_CONSUMER_SECRET','DARAJA_SHORTCODE','DARAJA_INITIATOR','DARAJA_SECURITY_CREDENTIAL','DARAJA_CALLBACK_TOKEN','PUBLIC_API_BASE'];
+  if (!requiredValues.every(key => Boolean(process.env[key])) || String(process.env.DARAJA_CALLBACK_TOKEN).length < 32) return false;
+  try { return new URL(process.env.PUBLIC_API_BASE).protocol === 'https:'; } catch { return false; }
+}
+function darajaBase() {
+  return process.env.DARAJA_ENV === 'sandbox' ? 'https://sandbox.safaricom.co.ke' : 'https://api.safaricom.co.ke';
+}
+function darajaCallbackUrl(verificationId, endpoint) {
+  const base = process.env.PUBLIC_API_BASE.replace(/\/$/, '');
+  return `${base}/api/daraja/${endpoint}/${encodeURIComponent(process.env.DARAJA_CALLBACK_TOKEN)}/${encodeURIComponent(verificationId)}`;
+}
+async function requestDarajaToken() {
+  const credentials = Buffer.from(`${process.env.DARAJA_CONSUMER_KEY}:${process.env.DARAJA_CONSUMER_SECRET}`).toString('base64');
+  const response = await fetch(`${darajaBase()}/oauth/v1/generate?grant_type=client_credentials`, { headers: { Authorization: `Basic ${credentials}` } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token) throw new Error('Daraja authentication failed. Check the private API credentials in Render.');
+  return payload.access_token;
+}
+
+app.get('/api/landlords/payment-instructions', (req, res) => {
+  if (!darajaConfigured()) return res.status(503).json({ error: 'Landlord M-Pesa verification is not configured yet. Please contact Fednice Solutions.' });
+  return res.json({ amount: Number(process.env.LANDLORD_REGISTRATION_AMOUNT || 1000), shortcode: process.env.DARAJA_SHORTCODE, accountReference: process.env.LANDLORD_PAYMENT_ACCOUNT_REFERENCE || '', environment: process.env.DARAJA_ENV === 'sandbox' ? 'sandbox' : 'production' });
+});
+
+app.post('/api/landlords/payment-verifications', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many payment checks. Please wait and try again.' }), asyncRoute(async (req, res) => {
+  if (!darajaConfigured()) return res.status(503).json({ error: 'Landlord M-Pesa verification is not configured yet. Please contact Fednice Solutions.' });
+  const receiptCode = String(req.body.receiptCode || '').trim().toUpperCase();
+  const smsText = String(req.body.smsText || '').trim();
+  const email = String(req.body.email || '').trim().toLowerCase();
+  let phone;
+  try { phone = normalizePhone(req.body.phone); }
+  catch { return res.status(400).json({ error: 'Enter the Kenyan phone number used for this registration.' }); }
+  if (!/^[A-Z0-9]{8,12}$/.test(receiptCode) || smsText.length < 20 || !smsText.toUpperCase().replace(/\s/g, '').includes(receiptCode)) {
+    return res.status(400).json({ error: 'Paste the original M-Pesa message and enter the receipt code exactly as shown.' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter the email address you used on the registration page.' });
+
+  const verificationId = crypto.randomUUID();
+  const receiptHash = crypto.createHash('sha256').update(receiptCode).digest('hex');
+  const verificationRef = db.collection('landlordPaymentVerifications').doc(verificationId);
+  const claimRef = db.collection('landlordPaymentClaims').doc(receiptHash);
+  let duplicate = false;
+  let existingVerificationId = '';
+  let existingStatus = '';
+  await db.runTransaction(async transaction => {
+    const claim = await transaction.get(claimRef);
+    if (claim.exists) {
+      const previousId = String(claim.get('verificationId') || '');
+      if (!previousId) { duplicate = true; return; }
+      const previousRef = db.collection('landlordPaymentVerifications').doc(previousId);
+      const previous = await transaction.get(previousRef);
+      if (!previous.exists) { duplicate = true; return; }
+      if (previous.get('emailHash') === crypto.createHash('sha256').update(email).digest('hex') && ['checking','pending','paid','registered'].includes(previous.get('status'))) {
+        existingVerificationId = previousId;
+        existingStatus = previous.get('status');
+        return;
+      }
+      if (!['rejected','error','timeout'].includes(previous.get('status'))) { duplicate = true; return; }
+      transaction.update(claimRef, { verificationId, status: 'checking', createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    } else {
+      transaction.create(claimRef, { verificationId, status: 'checking', createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    }
+    transaction.create(verificationRef, {
+      receiptCode, amountExpected: Number(process.env.LANDLORD_REGISTRATION_AMOUNT || 1000),
+      emailHash: crypto.createHash('sha256').update(email).digest('hex'),
+      phone,
+      status: 'checking', createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 60 * 1000)
+    });
+  });
+  if (existingVerificationId) return res.status(202).json({ verificationId: existingVerificationId, status: existingStatus });
+  if (duplicate) return res.status(409).json({ error: 'This M-Pesa receipt has already been used for a payment check.' });
+
+  try {
+    const token = await requestDarajaToken();
+    const response = await fetch(`${darajaBase()}/mpesa/transactionstatus/v1/query`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        Initiator: process.env.DARAJA_INITIATOR,
+        SecurityCredential: process.env.DARAJA_SECURITY_CREDENTIAL,
+        CommandID: 'TransactionStatusQuery', TransactionID: receiptCode,
+        PartyA: process.env.DARAJA_SHORTCODE, IdentifierType: process.env.DARAJA_IDENTIFIER_TYPE || '4',
+        ResultURL: darajaCallbackUrl(verificationId, 'result'),
+        QueueTimeOutURL: darajaCallbackUrl(verificationId, 'timeout'),
+        Remarks: 'FEDNICE landlord registration payment', Occasion: 'Registration'
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || String(payload.ResponseCode) !== '0') throw new Error('Daraja did not accept the transaction check. Check the shortcode and Transaction Status API access.');
+    await db.runTransaction(async transaction => {
+      const current = await transaction.get(verificationRef);
+      if (current.exists && current.get('status') === 'checking') transaction.update(verificationRef, { status: 'pending', originatorConversationId: payload.OriginatorConversationID || null, conversationId: payload.ConversationID || null });
+    });
+    return res.status(202).json({ verificationId, status: 'pending' });
+  } catch (error) {
+    await db.runTransaction(async transaction => {
+      const current = await transaction.get(verificationRef);
+      if (current.exists && current.get('status') === 'checking') {
+        transaction.update(verificationRef, { status: 'error', failureReason: 'Could not start M-Pesa verification.', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        transaction.update(claimRef, { status: 'error', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      }
+    }).catch(() => {});
+    console.error('Landlord Daraja verification request failed:', error.message);
+    return res.status(502).json({ error: 'We could not check that M-Pesa receipt right now. Please try again shortly.' });
+  }
+}));
+
+function darajaParameters(result) {
+  const values = result?.ResultParameters?.ResultParameter;
+  const entries = Array.isArray(values) ? values : values ? [values] : [];
+  return Object.fromEntries(entries.filter(item => item?.Key).map(item => [String(item.Key).toLowerCase().replace(/[^a-z]/g, ''), item.Value]));
+}
+function callbackTokenMatches(candidate) {
+  const expected = String(process.env.DARAJA_CALLBACK_TOKEN || '');
+  const actual = String(candidate || '');
+  if (!expected || !actual) return false;
+  const a = Buffer.from(expected), b = Buffer.from(actual);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+app.post('/api/daraja/result/:token/:verificationId', asyncRoute(async (req, res) => {
+  if (!callbackTokenMatches(req.params.token)) return res.status(404).end();
+  const ref = db.collection('landlordPaymentVerifications').doc(String(req.params.verificationId));
+  const doc = await ref.get();
+  if (!doc.exists) return res.status(404).end();
+  const result = req.body?.Result || {};
+  const params = darajaParameters(result);
+  const status = String(params.transactionstatus || '').trim().toLowerCase();
+  const resultReceipt = String(params.receiptno || result.TransactionID || '').trim().toUpperCase();
+  const amount = Number(params.amount);
+  const payerNames = (Array.isArray(result?.ResultParameters?.ResultParameter) ? result.ResultParameters.ResultParameter : [result?.ResultParameters?.ResultParameter].filter(Boolean))
+    .filter(item => String(item.Key || '').toLowerCase().replace(/[^a-z]/g, '') === 'debitpartyname').map(item => String(item.Value || ''));
+  const expectedPhone = String(doc.get('phone') || '').replace(/\D/g, '');
+  const payerMatches = payerNames.some(value => value.replace(/\D/g, '').includes(expectedPhone));
+  const matched = Number(result.ResultCode) === 0 && status === 'completed' && resultReceipt === doc.get('receiptCode') && amount === Number(doc.get('amountExpected')) && payerMatches;
+  const nextStatus = matched ? 'paid' : 'rejected';
+  await db.runTransaction(async transaction => {
+    const current = await transaction.get(ref);
+    if (!current.exists || ['paid','rejected','registered'].includes(current.get('status'))) return;
+    transaction.update(ref, {
+      status: nextStatus,
+      ...(matched ? { paidAt: admin.firestore.Timestamp.now(), verifiedAmount: amount, verifiedReceipt: resultReceipt } : { failureReason: 'M-Pesa did not confirm a completed payment for the required amount.' }),
+      callbackReceivedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    const claimRef = db.collection('landlordPaymentClaims').doc(crypto.createHash('sha256').update(current.get('receiptCode')).digest('hex'));
+    transaction.update(claimRef, { status: nextStatus, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  });
+  return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+}));
+app.post('/api/daraja/timeout/:token/:verificationId', asyncRoute(async (req, res) => {
+  if (!callbackTokenMatches(req.params.token)) return res.status(404).end();
+  const ref = db.collection('landlordPaymentVerifications').doc(String(req.params.verificationId));
+  const doc = await ref.get();
+  if (doc.exists && !['paid','rejected','registered'].includes(doc.get('status'))) await ref.update({ status: 'timeout', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+}));
+app.get('/api/landlords/payment-verifications/:verificationId', rateLimit({ windowMs: 15 * 60 * 1000, max: 120, message: 'Too many status checks. Please wait and refresh.' }), asyncRoute(async (req, res) => {
+  if (!/^[a-f0-9-]{36}$/i.test(req.params.verificationId)) return res.status(404).json({ error: 'Payment check not found.' });
+  const doc = await db.collection('landlordPaymentVerifications').doc(req.params.verificationId).get();
+  if (!doc.exists) return res.status(404).json({ error: 'Payment check not found.' });
+  const data = doc.data();
+  if (data.expiresAt.toMillis() <= Date.now() && !['paid','rejected','registered'].includes(data.status)) return res.json({ status: 'timeout' });
+  return res.json({ status: data.status });
+}));
+
+app.post('/api/landlords/register-paid', requireAuth, asyncRoute(async (req, res) => {
+  const verificationId = String(req.body.paymentVerificationId || '');
+  const profile = req.body.profile || {};
+  if (!/^[a-f0-9-]{36}$/i.test(verificationId)) return res.status(400).json({ error: 'Complete the M-Pesa payment check first.' });
+  if (!req.user.email || !req.user.uid) return res.status(401).json({ error: 'Please sign in again.' });
+  const emailHash = crypto.createHash('sha256').update(req.user.email.toLowerCase()).digest('hex');
+  const verificationRef = db.collection('landlordPaymentVerifications').doc(verificationId);
+  const landlordRef = db.collection('landlords').doc(req.user.uid);
+  let failure = '';
+  let alreadyCreated = false;
+  await db.runTransaction(async transaction => {
+    const [verification, landlord] = await Promise.all([transaction.get(verificationRef), transaction.get(landlordRef)]);
+    if (landlord.exists) { alreadyCreated = landlord.get('email') === req.user.email.toLowerCase(); return; }
+    if (!verification.exists || verification.get('status') !== 'paid' || verification.get('emailHash') !== emailHash || verification.get('registered')) { failure = 'The verified payment is not linked to this registration. Please restart registration or contact Fednice.'; return; }
+    let phone;
+    try { phone = normalizePhone(profile.phone); } catch { failure = 'Enter a valid Kenyan mobile number.'; return; }
+    if (phone !== verification.get('phone')) { failure = 'The registration phone number does not match the M-Pesa payer. Start again using the same phone number.'; return; }
+    const safeProfile = {
+      fullName: String(profile.fullName || '').trim().slice(0, 120), email: req.user.email.toLowerCase(), phone,
+      idNo: String(profile.idNo || '').trim().slice(0, 20), county: String(profile.county || '').slice(0, 80),
+      constituency: String(profile.constituency || '').slice(0, 80), propertyName: String(profile.propertyName || '').trim().slice(0, 120),
+      subscriptionStatus: 'active', subscriptionStartedAt: verification.get('paidAt'),
+      subscriptionEndsAt: admin.firestore.Timestamp.fromMillis(verification.get('paidAt').toMillis() + 90 * 24 * 60 * 60 * 1000),
+      emailVerificationRequired: true,
+      registrationPaymentId: verificationId, registrationPaymentAmount: verification.get('verifiedAmount'),
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    if (!safeProfile.fullName || !safeProfile.idNo || !safeProfile.county || !safeProfile.constituency || !safeProfile.propertyName) { failure = 'Please complete all required landlord details.'; return; }
+    transaction.create(landlordRef, safeProfile);
+    transaction.update(verificationRef, { status: 'registered', registered: true, landlordUid: req.user.uid, registeredAt: admin.firestore.FieldValue.serverTimestamp() });
+  });
+  if (failure) return res.status(403).json({ error: failure });
+  return res.status(alreadyCreated ? 200 : 201).json({ created: true });
 }));
 
 app.post('/api/landlords/payment-submissions/:paymentId/review', requireAuth, asyncRoute(async (req, res) => {
@@ -303,90 +543,16 @@ app.get('/api/tenants/me', requireAuth, asyncRoute(async (req, res) => {
   });
 }));
 
-app.post('/api/activation/send', asyncRoute(async (req, res) => {
-  let phone;
-  try { phone = normalizePhone(req.body.phone); }
-  catch (error) { return res.status(400).json({ error: error.message }); }
-  const key = phoneKey(phone);
-  const ref = db.collection('activationChallenges').doc(key);
-  const old = await ref.get();
-  if (old.exists && Date.now() - old.get('createdAt').toMillis() < 60000) return res.status(429).json({ error: 'Please wait one minute before requesting another code.' });
-  const code = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
-  const createdAt = admin.firestore.Timestamp.now();
-  await ref.set({ phone, codeHash: hash(`${phone}:${code}`), createdAt, expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 5 * 60 * 1000), attempts: 0, verified: false, ticketId: null, ticketUsed: false });
-  try {
-    await sms.send({ to: [phone], message: `FEDNICE activation code: ${code}. Expires in 5 minutes. Do not share this code.`, ...(process.env.AT_SENDER_ID ? { from: process.env.AT_SENDER_ID } : {}) });
-  } catch (error) {
-    await ref.delete();
-    console.error('SMS provider request failed:', error.message);
-    return res.status(502).json({ error: 'The activation SMS could not be sent. Please try again shortly.' });
-  }
-  return res.json({ sent: true, expiresInSeconds: 300 });
-}));
-
-app.post('/api/activation/verify', asyncRoute(async (req, res) => {
-  let phone;
-  try { phone = normalizePhone(req.body.phone); }
-  catch (error) { return res.status(400).json({ error: error.message }); }
-  const code = String(req.body.code || '');
-  if (!/^\d{6}$/.test(code)) return res.status(400).json({ error: 'Enter the six-digit SMS code.' });
-  const ref = db.collection('activationChallenges').doc(phoneKey(phone));
-  const ticketId = crypto.randomUUID();
-  let failure = '';
-  await db.runTransaction(async transaction => {
-    const doc = await transaction.get(ref);
-    if (!doc.exists) { failure = 'No active code was found. Request a new one.'; return; }
-    const data = doc.data();
-    if (data.verified || data.expiresAt.toMillis() <= Date.now()) { failure = 'This code has expired or was already used. Request a new code.'; return; }
-    if ((data.attempts || 0) >= 5) { failure = 'Too many attempts. Request a new code.'; return; }
-    if (data.codeHash !== hash(`${phone}:${code}`)) {
-      transaction.update(ref, { attempts: (data.attempts || 0) + 1 });
-      failure = `Incorrect code. ${4 - (data.attempts || 0)} attempt(s) remain.`;
-      return;
-    }
-    transaction.update(ref, { verified: true, verifiedAt: admin.firestore.Timestamp.now(), ticketId });
-  });
-  if (failure) return res.status(400).json({ error: failure });
-  const activationTicket = jwt.sign({ phone, phoneKey: phoneKey(phone), ticketId }, process.env.OTP_SECRET, { expiresIn: '10m', issuer: 'fednice-rental-system' });
-  return res.json({ activationTicket });
-}));
-
-app.post('/api/landlords/register', requireAuth, asyncRoute(async (req, res) => {
-  let ticket;
-  try { ticket = jwt.verify(String(req.body.activationTicket || ''), process.env.OTP_SECRET, { issuer: 'fednice-rental-system' }); }
-  catch { return res.status(400).json({ error: 'Phone verification expired. Request a new activation code.' }); }
-  const profile = req.body.profile || {};
-  let phone;
-  try { phone = normalizePhone(profile.phone); }
-  catch (error) { return res.status(400).json({ error: error.message }); }
-  if (phone !== ticket.phone || !req.user.email || req.user.email.toLowerCase() !== String(profile.email || '').trim().toLowerCase()) return res.status(403).json({ error: 'The verified phone or sign-in email does not match this registration.' });
-  const safeProfile = {
-    fullName: String(profile.fullName || '').trim().slice(0, 120), email: req.user.email.toLowerCase(), phone,
-    idNo: String(profile.idNo || '').trim().slice(0, 20), county: String(profile.county || '').slice(0, 80),
-    constituency: String(profile.constituency || '').slice(0, 80), propertyName: String(profile.propertyName || '').trim().slice(0, 120),
-    trialStartedAt: admin.firestore.FieldValue.serverTimestamp(), trialEndsAt: admin.firestore.Timestamp.fromMillis(Date.now() + 90 * 24 * 60 * 60 * 1000),
-    subscriptionStatus: 'trial', createdAt: admin.firestore.FieldValue.serverTimestamp()
-  };
-  if (!safeProfile.fullName || !safeProfile.idNo || !safeProfile.county || !safeProfile.constituency || !safeProfile.propertyName) return res.status(400).json({ error: 'Please complete all required landlord details.' });
-  const challengeRef = db.collection('activationChallenges').doc(ticket.phoneKey);
-  const landlordRef = db.collection('landlords').doc(req.user.uid);
-  let conflict = false;
-  await db.runTransaction(async transaction => {
-    const [challenge, landlord] = await Promise.all([transaction.get(challengeRef), transaction.get(landlordRef)]);
-    if (!challenge.exists || !challenge.get('verified') || challenge.get('ticketId') !== ticket.ticketId || challenge.get('ticketUsed') || challenge.get('phone') !== phone) { conflict = true; return; }
-    if (landlord.exists) { conflict = true; return; }
-    transaction.create(landlordRef, safeProfile);
-    transaction.update(challengeRef, { ticketUsed: true, consumedAt: admin.firestore.FieldValue.serverTimestamp() });
-  });
-  if (conflict) return res.status(409).json({ error: 'This activation code was used already or the account already exists.' });
-  return res.status(201).json({ created: true });
-}));
+app.post('/api/activation/send', (req, res) => res.status(410).json({ error: 'Phone-code activation has been replaced by M-Pesa payment and email verification.' }));
+app.post('/api/activation/verify', (req, res) => res.status(410).json({ error: 'Phone-code activation has been replaced by M-Pesa payment and email verification.' }));
+app.post('/api/landlords/register', (req, res) => res.status(410).json({ error: 'Use the payment-first landlord registration flow.' }));
 
 app.get('/api/landlords/me', requireAuth, asyncRoute(async (req, res) => {
   const doc = await db.collection('landlords').doc(req.user.uid).get();
   if (!doc.exists) return res.status(404).json({ error: 'No activated landlord profile was found.' });
   const data = doc.data();
-  return res.json({ uid: req.user.uid, fullName: data.fullName, email: data.email, propertyName: data.propertyName, subscriptionStatus: data.subscriptionStatus, trialEndsAt: data.trialEndsAt.toDate().toISOString(), subscriptionEndsAt: data.subscriptionEndsAt?.toDate?.().toISOString() || null });
+  if (data.emailVerificationRequired && !req.user.email_verified) return res.status(403).json({ error: 'Verify your email before opening the landlord dashboard.' });
+  return res.json({ uid: req.user.uid, fullName: data.fullName, email: data.email, propertyName: data.propertyName, subscriptionStatus: data.subscriptionStatus, trialEndsAt: data.trialEndsAt?.toDate?.().toISOString() || null, subscriptionEndsAt: data.subscriptionEndsAt?.toDate?.().toISOString() || null });
 }));
 
 app.use((error, req, res, next) => {

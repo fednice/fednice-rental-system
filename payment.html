@@ -1,24 +1,146 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0a0a">
-  <title>FEDNICE | Landlord Access</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0a0a0a">
+  <title>FEDNICE | Verify registration payment</title>
+  <link rel="icon" href="logo.png" type="image/png"><link rel="stylesheet" href="styles.css">
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:15px 22px;background:#111;border-bottom:1px solid #292929}.logo{width:140px;height:55px;object-fit:contain;object-position:left center}.card{width:min(540px,calc(100% - 32px));margin:9vh auto 36px;padding:28px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 10px;font-size:24px}p{color:#aaa;line-height:1.55}.notice{padding:14px;border:1px solid #393939;border-radius:10px;background:#1b1b1b;color:#ddd;font-size:14px;line-height:1.5}.actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:20px}a{display:inline-block;padding:12px 16px;border-radius:9px;background:#ff6a00;color:#111;text-decoration:none;font-weight:800}a.secondary{background:#1e1e1e;color:#fff;border:1px solid #444}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{padding:0;background:none;color:#ff9a53;text-decoration:none;font-weight:600}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:14px 22px;background:#111;border-bottom:1px solid #292929}.brand{font-size:22px;font-weight:800}.brand b{color:#1e90ff}.brand span{color:#ff6a00}.card{width:min(680px,calc(100% - 28px));margin:34px auto;padding:26px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 8px;font-size:26px}.muted{color:#aaa;line-height:1.55}.fee{padding:14px;margin:18px 0;background:#1b150f;border:1px solid #ff6a00;border-radius:10px;color:#ddd}.fee strong{color:#ff9a53;font-size:20px}.instructions{margin:14px 0;padding:14px;background:#101c27;border:1px solid #28557a;border-radius:10px;line-height:1.65}.instructions strong{color:#9bcfff}label{display:block;margin:15px 0 6px;color:#ccc;font-size:13px}input,textarea{width:100%;padding:12px 13px;border:1px solid #393939;border-radius:9px;background:#1e1e1e;color:#fff;font:inherit}textarea{min-height:125px;resize:vertical}input:focus,textarea:focus{outline:2px solid #ff6a00;border-color:#ff6a00}.help{font-size:12px;color:#aaa;margin-top:6px}.btn{width:100%;margin-top:18px;padding:14px;border:0;border-radius:10px;background:#ff6a00;color:#111;font-weight:800;font-size:15px;cursor:pointer}.btn:disabled{opacity:.55;cursor:wait}.message{min-height:24px;margin-top:14px;color:#ffc08f;line-height:1.5}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{color:#ff9a53}.back{display:inline-block;margin-top:12px;color:#aaa}.step{padding:12px 0;border-bottom:1px solid #292929}.step b{color:#ff9a53}
   </style>
-  <link rel="icon" href="logo.png" type="image/png">
-  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar"><img class="logo" src="logo.png" alt="FEDNICE"></header>
+  <header class="topbar"><div class="brand"><b>Fed</b><span>nice</span></div></header>
   <main class="card">
-    <h1>Landlord access</h1>
-    <div class="notice">The old KSh 2,500 code checkout has been retired because it did not verify M-Pesa payments and was not connected to landlord accounts. No old code records were deleted. Use your registered landlord account to sign in.</div>
-    <div class="actions"><a href="login.html">Landlord sign in</a><a class="secondary" href="register.html">Create landlord account</a></div>
-    <p>If you already paid and need help, call 0114462079 or email fednicesolutions@gmail.com.</p>
+    <h1>Pay and verify your registration</h1>
+    <p class="muted">Your account will be created only after Safaricom confirms your payment. Then we’ll email you a verification link.</p>
+    <div class="fee">Registration subscription<br><strong id="amount">Loading amount…</strong> <span class="muted">for 90 days</span></div>
+    <div class="instructions" id="instructions">Loading secure M-Pesa payment instructions…</div>
+    <div class="step"><b>1.</b> Pay the exact amount shown to the FEDNICE Paybill or Till above.</div>
+    <div class="step"><b>2.</b> Paste the full original M-Pesa confirmation message and its receipt code below.</div>
+    <div class="step"><b>3.</b> Wait here while Daraja checks the transaction. Do not pay twice if the check is still pending.</div>
+    <form id="paymentForm">
+      <label for="receiptCode">M-Pesa receipt code</label>
+      <input id="receiptCode" required autocomplete="off" maxlength="12" pattern="[A-Za-z0-9]{8,12}" placeholder="e.g. QWE123ABC4">
+      <label for="smsText">Original M-Pesa message</label>
+      <textarea id="smsText" required minlength="20" maxlength="2000" placeholder="Paste the full M-Pesa confirmation SMS here"></textarea>
+      <p class="help">We use the receipt code to check the transaction with Safaricom. The pasted text alone is not treated as proof of payment.</p>
+      <button class="btn" id="verifyButton" type="submit">Verify payment and create account</button>
+    </form>
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+    <button class="btn" id="resendEmail" type="button" hidden>Resend verification email</button>
+    <a class="back" href="register.html">← Back to registration</a>
   </main>
   <footer class="footer">For any assistance call <a href="tel:0114462079">0114462079</a> or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></footer>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="firebase.js"></script><script src="api-config.js"></script>
+  <script>
+    const apiBase=(window.FEDNICE_API_BASE||'').replace(/\/$/,'');
+    const messageEl=document.getElementById('message');
+    const paymentForm=document.getElementById('paymentForm');
+    const verifyButton=document.getElementById('verifyButton');
+    const resendButton=document.getElementById('resendEmail');
+    let pendingLandlord;
+    let amountExpected=1000;
+    let activeVerificationId=sessionStorage.getItem('fednicePendingPaymentVerification')||'';
+    let activeReceiptCode=sessionStorage.getItem('fednicePendingReceiptCode')||'';
+    async function api(path,options={}){
+      const response=await fetch(apiBase+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error||'The request could not be completed. Please try again.');
+      return data;
+    }
+    async function loadInstructions(){
+      try{
+        if(!apiBase)throw new Error('Payment service is not configured. Contact Fednice Solutions.');
+        const response=await fetch(apiBase+'/api/landlords/payment-instructions');
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(data.error||'Payment instructions are unavailable.');
+        amountExpected=Number(data.amount||1000);
+        document.getElementById('amount').textContent=`KSh ${amountExpected.toLocaleString('en-KE')}`;
+        const reference=data.accountReference?` Account/reference: <strong>${escapeHtml(data.accountReference)}</strong>.`:'';
+        document.getElementById('instructions').innerHTML=`Pay <strong>KSh ${amountExpected.toLocaleString('en-KE')}</strong> to FEDNICE ${data.environment==='sandbox'?'Daraja sandbox shortcode':'M-Pesa Paybill / Till'}: <strong>${escapeHtml(data.shortcode)}</strong>.${reference} Use your registered phone number when paying.`;
+      }catch(error){
+        document.getElementById('amount').textContent=`KSh ${amountExpected.toLocaleString('en-KE')}`;
+        document.getElementById('instructions').textContent=error.message;
+        verifyButton.disabled=true;
+      }
+    }
+    function escapeHtml(value){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
+    function delay(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+    async function waitForPayment(verificationId){
+      const started=Date.now();
+      while(Date.now()-started<180000){
+        await delay(3000);
+        const result=await api('/api/landlords/payment-verifications/'+encodeURIComponent(verificationId));
+        if(result.status==='paid'||result.status==='registered')return;
+        if(result.status==='rejected'){sessionStorage.removeItem('fednicePendingPaymentVerification');sessionStorage.removeItem('fednicePendingReceiptCode');activeVerificationId='';activeReceiptCode='';throw new Error('Safaricom could not confirm a completed KSh '+amountExpected.toLocaleString('en-KE')+' payment for that receipt. Check the receipt, amount, and FEDNICE number.');}
+        if(result.status==='error'||result.status==='timeout'){sessionStorage.removeItem('fednicePendingPaymentVerification');sessionStorage.removeItem('fednicePendingReceiptCode');activeVerificationId='';activeReceiptCode='';throw new Error('The M-Pesa check timed out. If you paid, contact Fednice with your receipt before paying again.');}
+        messageEl.textContent='Safaricom is checking your receipt… This may take a minute.';
+      }
+      const error=new Error('Safaricom is still checking this receipt. You can leave this page and continue the same check later; do not pay again.');
+      error.code='payment-check-pending';
+      throw error;
+    }
+    async function finishRegistration(verificationId){
+      messageEl.textContent='Payment confirmed. Creating your secure sign-in…';
+      let credential;
+      try{credential=await firebase.auth().createUserWithEmailAndPassword(pendingLandlord.email,pendingLandlord.password);}
+      catch(error){
+        if(error.code!=='auth/email-already-in-use')throw error;
+        credential=await firebase.auth().signInWithEmailAndPassword(pendingLandlord.email,pendingLandlord.password);
+      }
+      const profile={...pendingLandlord};delete profile.password;
+      const idToken=await credential.user.getIdToken();
+      await api('/api/landlords/register-paid',{method:'POST',headers:{Authorization:'Bearer '+idToken},body:JSON.stringify({paymentVerificationId:verificationId,profile})});
+      sessionStorage.removeItem('fednicePendingLandlord');
+      sessionStorage.removeItem('fednicePendingPaymentVerification');
+      sessionStorage.removeItem('fednicePendingReceiptCode');
+      paymentForm.hidden=true;
+      try{
+        await credential.user.sendEmailVerification();
+        await firebase.auth().signOut();
+        messageEl.textContent='Payment confirmed and account created. We sent a verification link to '+pendingLandlord.email+'. Open it, then sign in. Your subscription is active for 90 days.';
+        resendButton.hidden=true;
+      }catch{
+        messageEl.textContent='Your payment and account are confirmed, but the verification email could not be sent just now. Use the button below to retry.';
+        resendButton.hidden=false;
+      }
+    }
+    paymentForm.addEventListener('submit',async event=>{
+      event.preventDefault();
+      verifyButton.disabled=true;
+      try{
+        if(!pendingLandlord)throw new Error('Your registration details are missing. Return to registration and start again.');
+        const receiptCode=document.getElementById('receiptCode').value.trim().toUpperCase();
+        const smsText=document.getElementById('smsText').value.trim();
+        if(activeVerificationId&&activeReceiptCode!==receiptCode){activeVerificationId='';activeReceiptCode='';sessionStorage.removeItem('fednicePendingPaymentVerification');sessionStorage.removeItem('fednicePendingReceiptCode');}
+        if(!activeVerificationId){
+          messageEl.textContent='Sending receipt to Safaricom for verification…';
+          const started=await api('/api/landlords/payment-verifications',{method:'POST',body:JSON.stringify({receiptCode,smsText,email:pendingLandlord.email,phone:pendingLandlord.phone})});
+          activeVerificationId=started.verificationId;activeReceiptCode=receiptCode;
+          sessionStorage.setItem('fednicePendingPaymentVerification',activeVerificationId);
+          sessionStorage.setItem('fednicePendingReceiptCode',activeReceiptCode);
+        }
+        messageEl.textContent='Receipt submitted. Waiting for Safaricom’s result…';
+        await waitForPayment(activeVerificationId);
+        await finishRegistration(activeVerificationId);
+      }catch(error){
+        if(error.code==='auth/email-already-in-use')messageEl.textContent='That email already has an account. Sign in instead or use another email.';
+        else messageEl.textContent=error.message||'Could not complete registration. Please try again.';
+        if(error.code!=='payment-check-pending')verifyButton.disabled=false;
+      }
+    });
+    resendButton.addEventListener('click',async()=>{
+      const user=firebase.auth().currentUser;
+      if(!user){messageEl.textContent='Open your inbox and use the verification link already sent, then sign in.';return;}
+      resendButton.disabled=true;
+      try{await user.sendEmailVerification();await firebase.auth().signOut();messageEl.textContent='A new verification link has been sent. Open it, then sign in.';}
+      catch{messageEl.textContent='Could not resend the verification email. Try again later or contact Fednice.';resendButton.disabled=false;}
+    });
+    try{pendingLandlord=JSON.parse(sessionStorage.getItem('fednicePendingLandlord')||'null');}catch{pendingLandlord=null;}
+    if(!pendingLandlord){paymentForm.hidden=true;messageEl.textContent='Registration details were not found. Please return to the registration form and try again.';}
+    loadInstructions();
+  </script>
 </body>
 </html>

@@ -55,24 +55,18 @@ input:focus,select:focus{border-color:#FF6A00}
 <label>Full Name</label><input id="fullName" required placeholder="e.g. Jane Wambui Kamau">
 <label>Email Address (for landlord login)</label><input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
 <label>ID Number</label><input id="idNo" required placeholder="e.g. 34567892" inputmode="numeric">
-<label>Phone (for one-time activation SMS)</label><input id="phone" type="tel" autocomplete="tel" required placeholder="+254 7XX XXX XXX">
+<label>Phone number</label><input id="phone" type="tel" autocomplete="tel" required placeholder="+254 7XX XXX XXX">
 <label>County (47 Counties)</label><select id="county" required onchange="loadConstituencies()"><option value="">Select County</option></select>
 <label>Constituency</label><select id="constituency" required><option value="">Select County First</option></select>
 <label>Property Name</label><input id="propertyName" required placeholder="e.g. Sunshine Apartments">
 <label>Password</label><div style="position:relative"><input id="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Create strong password" oninput="checkStrength()"><span onclick="togglePw()" style="position:absolute;right:12px;top:11px;cursor:pointer">👁️</span></div>
 <div class="strength"><div id="strengthBar"></div></div>
 <div class="hint">⚠️ Strong: 8+ chars, UPPERCASE, number & symbol. Example: Fednice2025@</div>
-<div class="fee"><b style="color:#FF6A00">Three-Month Free Trial</b><br>KSh 1,000 after the trial to continue using the system<br><span style="color:#aaa">The first three months are free.</span></div>
+<div class="fee"><b style="color:#FF6A00">KSh 1,000 for 90 days</b><br>Complete your M-Pesa payment after this form. Your account activates after the payment is verified and you confirm your email.</div>
 <div style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12px;color:#bbb"><input type="checkbox" required style="width:auto"><span>I agree to Terms & Privacy - Kenya Data Protection Act</span></div>
-<button class="btn" type="submit">Register Now →</button>
+<button class="btn" type="submit">Continue to payment →</button>
 <p id="registerMessage" role="status" aria-live="polite" style="margin-top:12px;color:#ffb47f;font-size:13px"></p>
 </form>
-<section id="activationStep" hidden style="margin-top:20px">
-<h3>Verify your phone</h3><p class="sub">Enter the one-time code sent by SMS. It activates your landlord account once.</p>
-<label for="activationCode">SMS activation code</label><input id="activationCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code">
-<button class="btn" id="verifyActivation" type="button">Verify & Create Account</button>
-<p id="activationMessage" role="status" aria-live="polite" style="margin-top:12px;color:#ffb47f;font-size:13px"></p>
-</section>
 </div>
 </div>
 <footer class="footer">For any assistance call <b>0114462079</b> or contact <b>fednicesolutions@gmail.com</b></footer>
@@ -147,46 +141,21 @@ function checkStrength(){
   const bar=document.getElementById('strengthBar');bar.style.width=score+'%';bar.style.background=score<50?'#ff4444':score<75?'orange':'#00ff88';
 }
 function togglePw(){const i=document.getElementById('password');i.type=i.type==='password'?'text':'password';}
-const FEDNICE_API_BASE = window.FEDNICE_API_BASE || '';
-let pendingLandlord = null;
-let activationTicket = null;
-async function apiRequest(path, payload, idToken){
-  if(!FEDNICE_API_BASE) throw new Error('Landlord activation service has not been configured yet. Please contact Fednice Solutions.');
-  const response = await fetch(FEDNICE_API_BASE.replace(/\/$/, '') + path, {
-    method:'POST', headers:{'Content-Type':'application/json', ...(idToken ? {Authorization:'Bearer '+idToken} : {})}, body:JSON.stringify(payload)
-  });
-  const result = await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(result.error || 'The request could not be completed. Please try again.');
-  return result;
-}
 function handleRegister(e){
   e.preventDefault();
-  const form=e.currentTarget;
-  pendingLandlord={fullName:document.getElementById('fullName').value.trim(),email:document.getElementById('email').value.trim(),idNo:document.getElementById('idNo').value.trim(),phone:document.getElementById('phone').value.trim(),county:countySelect.value,constituency:document.getElementById('constituency').value,propertyName:document.getElementById('propertyName').value.trim(),password:document.getElementById('password').value};
-  const button=form.querySelector('button[type="submit"]');
-  button.disabled=true; document.getElementById('registerMessage').textContent='Sending your one-time activation SMS…';
-  apiRequest('/api/activation/send',{phone:pendingLandlord.phone}).then(()=>{
-    form.hidden=true;document.getElementById('activationStep').hidden=false;document.getElementById('activationMessage').textContent='Code sent. It expires shortly and can only be used once.';
-  }).catch(error=>{document.getElementById('registerMessage').textContent=error.message;button.disabled=false;});
+  const button=e.currentTarget.querySelector('button[type="submit"]');
+  const pendingLandlord={fullName:document.getElementById('fullName').value.trim(),email:document.getElementById('email').value.trim(),idNo:document.getElementById('idNo').value.trim(),phone:document.getElementById('phone').value.trim(),county:countySelect.value,constituency:document.getElementById('constituency').value,propertyName:document.getElementById('propertyName').value.trim(),password:document.getElementById('password').value};
+  try {
+    // Kept only in this browser tab until the payment and email-verification steps finish.
+    sessionStorage.setItem('fednicePendingLandlord',JSON.stringify(pendingLandlord));
+    button.disabled=true;
+    document.getElementById('registerMessage').textContent='Taking you to secure payment verification…';
+    window.location.href='payment.html';
+  } catch {
+    document.getElementById('registerMessage').textContent='Your browser could not save this short registration step. Please enable session storage and try again.';
+  }
   return false;
 }
-document.getElementById('verifyActivation').addEventListener('click',async function(){
-  const button=this, message=document.getElementById('activationMessage');button.disabled=true;message.textContent='Verifying code…';
-  try{
-    const verified=await apiRequest('/api/activation/verify',{phone:pendingLandlord.phone,code:document.getElementById('activationCode').value.trim()});
-    activationTicket=verified.activationTicket;
-    const credential=await firebase.auth().createUserWithEmailAndPassword(pendingLandlord.email,pendingLandlord.password);
-    const idToken=await credential.user.getIdToken();
-    const profile={...pendingLandlord};delete profile.password;
-    await apiRequest('/api/landlords/register',{profile,activationTicket},idToken);
-    message.textContent='Phone verified. Your landlord account is ready. Taking you to sign in…';
-    await firebase.auth().signOut();setTimeout(()=>window.location.href='login.html',900);
-  }catch(error){
-    if(error.code==='auth/email-already-in-use') message.textContent='That email already has an account. Use the landlord login page or reset its password.';
-    else message.textContent=error.message || 'Could not activate the account. Check the code and try again.';
-    button.disabled=false;
-  }
-});
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
