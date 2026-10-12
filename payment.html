@@ -5,26 +5,26 @@
   <title>FEDNICE | Verify registration payment</title>
   <link rel="icon" href="logo.png" type="image/png"><link rel="stylesheet" href="styles.css">
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:14px 22px;background:#111;border-bottom:1px solid #292929}.brand{font-size:22px;font-weight:800}.brand b{color:#1e90ff}.brand span{color:#ff6a00}.card{width:min(680px,calc(100% - 28px));margin:34px auto;padding:26px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 8px;font-size:26px}.muted{color:#aaa;line-height:1.55}.fee{padding:14px;margin:18px 0;background:#1b150f;border:1px solid #ff6a00;border-radius:10px;color:#ddd}.fee strong{color:#ff9a53;font-size:20px}.instructions{margin:14px 0;padding:14px;background:#101c27;border:1px solid #28557a;border-radius:10px;line-height:1.65}.instructions strong{color:#9bcfff}label{display:block;margin:15px 0 6px;color:#ccc;font-size:13px}input,textarea{width:100%;padding:12px 13px;border:1px solid #393939;border-radius:9px;background:#1e1e1e;color:#fff;font:inherit}textarea{min-height:125px;resize:vertical}input:focus,textarea:focus{outline:2px solid #ff6a00;border-color:#ff6a00}.help{font-size:12px;color:#aaa;margin-top:6px}.btn{width:100%;margin-top:18px;padding:14px;border:0;border-radius:10px;background:#ff6a00;color:#111;font-weight:800;font-size:15px;cursor:pointer}.btn:disabled{opacity:.55;cursor:wait}.message{min-height:24px;margin-top:14px;color:#ffc08f;line-height:1.5}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{color:#ff9a53}.back{display:inline-block;margin-top:12px;color:#aaa}.step{padding:12px 0;border-bottom:1px solid #292929}.step b{color:#ff9a53}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:14px 22px;background:#111;border-bottom:1px solid #292929}.brand{font-size:22px;font-weight:800}.brand b{color:#1e90ff}.brand span{color:#ff6a00}.card{width:min(680px,calc(100% - 28px));margin:34px auto;padding:26px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 8px;font-size:26px}.muted{color:#aaa;line-height:1.55}.fee{padding:14px;margin:18px 0;background:#1b150f;border:1px solid #ff6a00;border-radius:10px;color:#ddd}.fee strong{color:#ff9a53;font-size:20px}.instructions{margin:14px 0;padding:16px;background:#101c27;border:1px solid #28557a;border-radius:10px;line-height:1.65}.equity-brand{display:flex;align-items:center;gap:10px;margin-bottom:12px;color:#f0f0f0;font-size:16px;font-weight:800}.equity-logo{width:42px;height:42px;object-fit:contain;padding:3px;border-radius:7px;background:#fff}.bank-caption{font-size:11px;color:#aaa;font-weight:500;letter-spacing:.08em;text-transform:uppercase}.payment-number{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 12px;background:#0b1015;border:1px solid #263849;border-radius:9px}.payment-number strong{font-size:19px;letter-spacing:.06em;color:#fff}.copy-btn{padding:8px 11px;border:1px solid #536779;border-radius:7px;background:#1c2a36;color:#d9e9f8;font-weight:700;cursor:pointer}.instructions strong{color:#9bcfff}label{display:block;margin:15px 0 6px;color:#ccc;font-size:13px}input,textarea{width:100%;padding:12px 13px;border:1px solid #393939;border-radius:9px;background:#1e1e1e;color:#fff;font:inherit}textarea{min-height:125px;resize:vertical}input:focus,textarea:focus{outline:2px solid #ff6a00;border-color:#ff6a00}.help{font-size:12px;color:#aaa;margin-top:6px}.btn{width:100%;margin-top:18px;padding:14px;border:0;border-radius:10px;background:#ff6a00;color:#111;font-weight:800;font-size:15px;cursor:pointer}.btn:disabled{opacity:.55;cursor:wait}.message{min-height:24px;margin-top:14px;color:#ffc08f;line-height:1.5}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{color:#ff9a53}.back{display:inline-block;margin-top:12px;color:#aaa}.step{padding:12px 0;border-bottom:1px solid #292929}.step b{color:#ff9a53}
   </style>
 </head>
 <body>
   <header class="topbar"><div class="brand"><b>Fed</b><span>nice</span></div></header>
   <main class="card">
     <h1>Pay and verify your registration</h1>
-    <p class="muted">Your account will be created only after Safaricom confirms your payment. Then we’ll email you a verification link.</p>
+    <p class="muted">Your account will be created after Fednice manually confirms your payment in the Equity account. Then we’ll email you a verification link.</p>
     <div class="fee">Registration subscription<br><strong id="amount">Loading amount…</strong> <span class="muted">for 90 days</span></div>
     <div class="instructions" id="instructions">Loading secure M-Pesa payment instructions…</div>
-    <div class="step"><b>1.</b> Pay the exact amount shown to the FEDNICE Paybill or Till above.</div>
+    <div class="step"><b>1.</b> Pay the exact amount shown to Equity Paybill 247247 using the account number displayed above.</div>
     <div class="step"><b>2.</b> Paste the full original M-Pesa confirmation message and its receipt code below.</div>
-    <div class="step"><b>3.</b> Wait here while Daraja checks the transaction. Do not pay twice if the check is still pending.</div>
+    <div class="step"><b>3.</b> Submit the receipt for review. Your account activates after Fednice confirms the payment. Do not pay twice while review is pending.</div>
     <form id="paymentForm">
       <label for="receiptCode">M-Pesa receipt code</label>
       <input id="receiptCode" required autocomplete="off" maxlength="12" pattern="[A-Za-z0-9]{8,12}" placeholder="e.g. QWE123ABC4">
       <label for="smsText">Original M-Pesa message</label>
       <textarea id="smsText" required minlength="20" maxlength="2000" placeholder="Paste the full M-Pesa confirmation SMS here"></textarea>
-      <p class="help">We use the receipt code to check the transaction with Safaricom. The pasted text alone is not treated as proof of payment.</p>
-      <button class="btn" id="verifyButton" type="submit">Verify payment and create account</button>
+      <p class="help">The receipt and message help Fednice locate your payment. Submitting them does not automatically confirm payment.</p>
+      <button class="btn" id="verifyButton" type="submit">Submit payment for review</button>
     </form>
     <p id="message" class="message" role="status" aria-live="polite"></p>
     <button class="btn" id="resendEmail" type="button" hidden>Resend verification email</button>
@@ -58,8 +58,7 @@
         if(!response.ok)throw new Error(data.error||'Payment instructions are unavailable.');
         amountExpected=Number(data.amount||1000);
         document.getElementById('amount').textContent=`KSh ${amountExpected.toLocaleString('en-KE')}`;
-        const reference=data.accountReference?` Account/reference: <strong>${escapeHtml(data.accountReference)}</strong>.`:'';
-        document.getElementById('instructions').innerHTML=`Pay <strong>KSh ${amountExpected.toLocaleString('en-KE')}</strong> to FEDNICE ${data.environment==='sandbox'?'Daraja sandbox shortcode':'M-Pesa Paybill / Till'}: <strong>${escapeHtml(data.shortcode)}</strong>.${reference} Use your registered phone number when paying.`;
+        document.getElementById('instructions').innerHTML=`<div class="equity-brand"><img class="equity-logo" src="equity-logo.png" alt="Equity logo"><span>Equity Bank<br><small class="bank-caption">M-Pesa payment details</small></span></div><div>Pay <strong>KSh ${amountExpected.toLocaleString('en-KE')}</strong> using Paybill <strong>${escapeHtml(data.paybill)}</strong>.</div><div class="payment-number"><span>Account number<br><strong>${escapeHtml(data.accountNumber)}</strong></span><button class="copy-btn" type="button" data-copy-account="${escapeHtml(data.accountNumber)}">Copy</button></div><div class="help">Use your registered phone number when paying.</div>`;
       }catch(error){
         document.getElementById('amount').textContent=`KSh ${amountExpected.toLocaleString('en-KE')}`;
         document.getElementById('instructions').textContent=error.message;
@@ -67,6 +66,7 @@
       }
     }
     function escapeHtml(value){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
+    document.getElementById('instructions').addEventListener('click',async event=>{const button=event.target.closest('[data-copy-account]');if(!button)return;try{await navigator.clipboard.writeText(button.dataset.copyAccount);button.textContent='Copied';setTimeout(()=>button.textContent='Copy',1600);}catch{messageEl.textContent='Copy is unavailable in this browser. Please copy the account number manually.';}});
     function delay(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
     async function waitForPayment(verificationId){
       const started=Date.now();
@@ -74,11 +74,14 @@
         await delay(3000);
         const result=await api('/api/landlords/payment-verifications/'+encodeURIComponent(verificationId));
         if(result.status==='paid'||result.status==='registered')return;
+        if(result.status==='pending_review'){
+          messageEl.textContent='Your payment details are submitted and waiting for Fednice review. Keep this page open; your account will continue when the payment is approved.';
+        }
         if(result.status==='rejected'){sessionStorage.removeItem('fednicePendingPaymentVerification');sessionStorage.removeItem('fednicePendingReceiptCode');activeVerificationId='';activeReceiptCode='';throw new Error('Safaricom could not confirm a completed KSh '+amountExpected.toLocaleString('en-KE')+' payment for that receipt. Check the receipt, amount, and FEDNICE number.');}
         if(result.status==='error'||result.status==='timeout'){sessionStorage.removeItem('fednicePendingPaymentVerification');sessionStorage.removeItem('fednicePendingReceiptCode');activeVerificationId='';activeReceiptCode='';throw new Error('The M-Pesa check timed out. If you paid, contact Fednice with your receipt before paying again.');}
-        messageEl.textContent='Safaricom is checking your receipt… This may take a minute.';
+        await delay(7000);
       }
-      const error=new Error('Safaricom is still checking this receipt. You can leave this page and continue the same check later; do not pay again.');
+      const error=new Error('Your payment is still waiting for Fednice review. You can leave and return to this page later; do not pay again.');
       error.code='payment-check-pending';
       throw error;
     }
@@ -116,19 +119,19 @@
         const smsText=document.getElementById('smsText').value.trim();
         if(activeVerificationId&&activeReceiptCode!==receiptCode){activeVerificationId='';activeReceiptCode='';sessionStorage.removeItem('fednicePendingPaymentVerification');sessionStorage.removeItem('fednicePendingReceiptCode');}
         if(!activeVerificationId){
-          messageEl.textContent='Sending receipt to Safaricom for verification…';
+          messageEl.textContent='Submitting your receipt for Fednice review…';
           const started=await api('/api/landlords/payment-verifications',{method:'POST',body:JSON.stringify({receiptCode,smsText,email:pendingLandlord.email,phone:pendingLandlord.phone})});
           activeVerificationId=started.verificationId;activeReceiptCode=receiptCode;
           sessionStorage.setItem('fednicePendingPaymentVerification',activeVerificationId);
           sessionStorage.setItem('fednicePendingReceiptCode',activeReceiptCode);
         }
-        messageEl.textContent='Receipt submitted. Waiting for Safaricom’s result…';
+        messageEl.textContent='Receipt submitted. Waiting for Fednice to confirm it in the Equity account…';
         await waitForPayment(activeVerificationId);
         await finishRegistration(activeVerificationId);
       }catch(error){
         if(error.code==='auth/email-already-in-use')messageEl.textContent='That email already has an account. Sign in instead or use another email.';
         else messageEl.textContent=error.message||'Could not complete registration. Please try again.';
-        if(error.code!=='payment-check-pending')verifyButton.disabled=false;
+        verifyButton.disabled=false;
       }
     });
     resendButton.addEventListener('click',async()=>{

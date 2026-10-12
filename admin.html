@@ -1,24 +1,41 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0a0a">
-  <title>FEDNICE | Admin</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0a0a0a">
+  <title>FEDNICE | Payment review</title><link rel="icon" href="logo.png" type="image/png"><link rel="stylesheet" href="styles.css">
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:15px 22px;background:#111;border-bottom:1px solid #292929}.logo{width:140px;height:55px;object-fit:contain;object-position:left center}.card{width:min(560px,calc(100% - 32px));margin:9vh auto 36px;padding:28px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 10px;font-size:24px}p{color:#aaa;line-height:1.55}.notice{padding:14px;border:1px solid #805222;border-radius:10px;background:#21190f;color:#ffd38a;font-size:14px;line-height:1.5}.actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:20px}a{display:inline-block;padding:12px 16px;border-radius:9px;background:#ff6a00;color:#111;text-decoration:none;font-weight:800}a.secondary{background:#1e1e1e;color:#fff;border:1px solid #444}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{padding:0;background:none;color:#ff9a53;text-decoration:none;font-weight:600}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:14px 22px;background:#111;border-bottom:1px solid #292929}.logo{width:140px;height:55px;object-fit:contain;object-position:left center}.card{width:min(900px,calc(100% - 28px));margin:32px auto;padding:24px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 8px}.muted,p{color:#aaa;line-height:1.55}label{display:block;margin:14px 0 6px;color:#ccc}input{width:100%;padding:12px;border:1px solid #393939;border-radius:9px;background:#1e1e1e;color:white;font:inherit}.btn{padding:11px 16px;border:0;border-radius:9px;background:#ff6a00;color:#111;font-weight:800;cursor:pointer}.btn.secondary{background:#292929;color:white;border:1px solid #555}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.message{min-height:22px;color:#ffc08f}.destination{margin:18px 0;padding:15px;background:#171313;border:1px solid #583039;border-radius:11px;line-height:1.7}.equity-brand{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-weight:800}.equity-mark{width:38px;height:38px;object-fit:contain;padding:2px;border-radius:6px;background:#fff}.destination strong{color:#ffd1d8;letter-spacing:.04em}.item{margin:14px 0;padding:16px;border:1px solid #333;border-radius:12px;background:#191919}.item pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#ddd;font:13px/1.5 Arial}.meta{color:#aaa;font-size:13px;line-height:1.7}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{color:#ff9a53}.hide{display:none!important}
   </style>
-  <link rel="icon" href="logo.png" type="image/png">
-  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar"><img class="logo" src="logo.png" alt="FEDNICE"></header>
   <main class="card">
-    <h1>Legacy code generator</h1>
-    <p>The old one-time access-code screen has been retired. It allowed anyone with the page link to generate or view codes, so it cannot safely use the new private Firestore rules.</p>
-    <div class="notice">Your existing code records have not been deleted. The newer landlord flow uses phone activation and a personal email/password account.</div>
-    <div class="actions"><a href="register.html">Create landlord account</a><a class="secondary" href="login.html">Landlord sign in</a></div>
+    <h1>Landlord payment review</h1>
+    <p class="muted">Sign in with an administrator email authorized in Render. Check the Equity account or statement before approving any receipt.</p>
+    <div id="destination" class="destination"><div class="equity-brand"><img class="equity-mark" src="equity-logo.png" alt="Equity logo">Equity Bank · M-Pesa collection</div>Loading payment destination…</div>
+    <form id="loginForm">
+      <label for="email">Administrator email</label><input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
+      <div class="row"><button class="btn" type="submit">Sign in</button></div>
+    </form>
+    <section id="reviewPanel" class="hide"><div class="row"><button id="refreshButton" class="btn secondary" type="button">Refresh list</button><button id="signOutButton" class="btn secondary" type="button">Sign out</button></div><div id="payments"></div></section>
+    <p id="message" class="message" role="status" aria-live="polite"></p>
   </main>
   <footer class="footer">For any assistance call <a href="tel:0114462079">0114462079</a> or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></footer>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="firebase.js"></script><script src="api-config.js"></script>
+  <script>
+    const base=(window.FEDNICE_API_BASE||'').replace(/\/$/,''),auth=firebase.auth(),message=document.getElementById('message');
+    const loginForm=document.getElementById('loginForm'),panel=document.getElementById('reviewPanel'),payments=document.getElementById('payments');
+    function esc(value){return String(value||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    fetch(base+'/api/landlords/payment-instructions').then(response=>response.json().then(data=>({response,data}))).then(({response,data})=>{if(!response.ok)throw new Error();document.getElementById('destination').innerHTML=`<div class="equity-brand"><img class="equity-mark" src="equity-logo.png" alt="Equity logo">Equity Bank · M-Pesa collection</div>Paybill <strong>${esc(data.paybill)}</strong><br>Account number <strong>${esc(data.accountNumber)}</strong>`;}).catch(()=>{document.getElementById('destination').textContent='Payment destination is not available right now.';});
+    async function api(path,options={}){const user=auth.currentUser;if(!user)throw new Error('Please sign in.');const token=await user.getIdToken();const response=await fetch(base+path,{...options,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Could not complete the request.');return data;}
+    async function loadPayments(){payments.innerHTML='<p>Loading pending submissions…</p>';try{const data=await api('/api/admin/landlord-payment-verifications');if(!data.payments.length){payments.innerHTML='<p>No landlord payments are waiting for review.</p>';return;}payments.innerHTML=data.payments.map(item=>`<article class="item" data-id="${esc(item.id)}"><h2>KSh ${Number(item.amountExpected).toLocaleString('en-KE')} · ${esc(item.receiptCode)}</h2><div class="meta">Email: ${esc(item.email)}<br>Phone: ${esc(item.phone)}<br>Submitted: ${esc(item.submittedAt||'')}</div><p><b>Submitted M-Pesa message</b></p><pre>${esc(item.smsText)}</pre><div class="row"><button class="btn" data-decision="approve" type="button">Approve after checking Equity</button><button class="btn secondary" data-decision="reject" type="button">Reject</button></div></article>`).join('');}
+      catch(error){payments.innerHTML='';message.textContent=error.message;}}
+    loginForm.addEventListener('submit',async event=>{event.preventDefault();message.textContent='Signing in…';try{await auth.signInWithEmailAndPassword(document.getElementById('email').value.trim(),document.getElementById('password').value);loginForm.classList.add('hide');panel.classList.remove('hide');message.textContent='';await loadPayments();}catch{message.textContent='Invalid login or this account is not authorized to review payments.';}});
+    payments.addEventListener('click',async event=>{const button=event.target.closest('[data-decision]');if(!button)return;const card=button.closest('[data-id]');if(!confirm(button.dataset.decision==='approve'?'Approve only after matching the receipt and amount in Equity?':'Reject this payment submission?'))return;button.disabled=true;message.textContent='Saving review…';try{await api('/api/admin/landlord-payment-verifications/'+encodeURIComponent(card.dataset.id)+'/review',{method:'POST',body:JSON.stringify({decision:button.dataset.decision})});message.textContent='Review saved. The landlord registration will continue if approved.';await loadPayments();}catch(error){message.textContent=error.message;button.disabled=false;}});
+    document.getElementById('refreshButton').addEventListener('click',loadPayments);
+    document.getElementById('signOutButton').addEventListener('click',async()=>{await auth.signOut();panel.classList.add('hide');loginForm.classList.remove('hide');payments.innerHTML='';message.textContent='Signed out.';});
+  </script>
 </body>
 </html>

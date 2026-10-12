@@ -241,33 +241,14 @@ app.post('/api/tenants/payment-submissions', requireAuth, asyncRoute(async (req,
   return res.status(201).json({ submitted: true, status: 'pending' });
 }));
 
-function darajaConfigured() {
-  const requiredValues = ['DARAJA_CONSUMER_KEY','DARAJA_CONSUMER_SECRET','DARAJA_SHORTCODE','DARAJA_INITIATOR','DARAJA_SECURITY_CREDENTIAL','DARAJA_CALLBACK_TOKEN','PUBLIC_API_BASE'];
-  if (!requiredValues.every(key => Boolean(process.env[key])) || String(process.env.DARAJA_CALLBACK_TOKEN).length < 32) return false;
-  try { return new URL(process.env.PUBLIC_API_BASE).protocol === 'https:'; } catch { return false; }
-}
-function darajaBase() {
-  return process.env.DARAJA_ENV === 'sandbox' ? 'https://sandbox.safaricom.co.ke' : 'https://api.safaricom.co.ke';
-}
-function darajaCallbackUrl(verificationId, endpoint) {
-  const base = process.env.PUBLIC_API_BASE.replace(/\/$/, '');
-  return `${base}/api/daraja/${endpoint}/${encodeURIComponent(process.env.DARAJA_CALLBACK_TOKEN)}/${encodeURIComponent(verificationId)}`;
-}
-async function requestDarajaToken() {
-  const credentials = Buffer.from(`${process.env.DARAJA_CONSUMER_KEY}:${process.env.DARAJA_CONSUMER_SECRET}`).toString('base64');
-  const response = await fetch(`${darajaBase()}/oauth/v1/generate?grant_type=client_credentials`, { headers: { Authorization: `Basic ${credentials}` } });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.access_token) throw new Error('Daraja authentication failed. Check the private API credentials in Render.');
-  return payload.access_token;
-}
-
 app.get('/api/landlords/payment-instructions', (req, res) => {
-  if (!darajaConfigured()) return res.status(503).json({ error: 'Landlord M-Pesa verification is not configured yet. Please contact Fednice Solutions.' });
-  return res.json({ amount: Number(process.env.LANDLORD_REGISTRATION_AMOUNT || 1000), shortcode: process.env.DARAJA_SHORTCODE, accountReference: process.env.LANDLORD_PAYMENT_ACCOUNT_REFERENCE || '', environment: process.env.DARAJA_ENV === 'sandbox' ? 'sandbox' : 'production' });
+  const accountNumber = String(process.env.EQUITY_ACCOUNT_NUMBER || '0726387275').trim();
+  if (!/^\d{5,20}$/.test(accountNumber)) return res.status(503).json({ error: 'Equity payment instructions are not configured yet. Please contact Fednice Solutions.' });
+  return res.json({ amount: Number(process.env.LANDLORD_REGISTRATION_AMOUNT || 1000), provider: 'equity', paybill: '247247', accountNumber });
 });
 
 app.post('/api/landlords/payment-verifications', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many payment checks. Please wait and try again.' }), asyncRoute(async (req, res) => {
-  if (!darajaConfigured()) return res.status(503).json({ error: 'Landlord M-Pesa verification is not configured yet. Please contact Fednice Solutions.' });
+  if (!/^\d{5,20}$/.test(String(process.env.EQUITY_ACCOUNT_NUMBER || '0726387275').trim())) return res.status(503).json({ error: 'Equity payment instructions are not configured yet. Please contact Fednice Solutions.' });
   const receiptCode = String(req.body.receiptCode || '').trim().toUpperCase();
   const smsText = String(req.body.smsText || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -294,110 +275,67 @@ app.post('/api/landlords/payment-verifications', rateLimit({ windowMs: 15 * 60 *
       const previousRef = db.collection('landlordPaymentVerifications').doc(previousId);
       const previous = await transaction.get(previousRef);
       if (!previous.exists) { duplicate = true; return; }
-      if (previous.get('emailHash') === crypto.createHash('sha256').update(email).digest('hex') && ['checking','pending','paid','registered'].includes(previous.get('status'))) {
+      if (previous.get('emailHash') === crypto.createHash('sha256').update(email).digest('hex') && ['pending_review','paid','registered'].includes(previous.get('status'))) {
         existingVerificationId = previousId;
         existingStatus = previous.get('status');
         return;
       }
       if (!['rejected','error','timeout'].includes(previous.get('status'))) { duplicate = true; return; }
-      transaction.update(claimRef, { verificationId, status: 'checking', createdAt: admin.firestore.FieldValue.serverTimestamp() });
+      transaction.update(claimRef, { verificationId, status: 'pending_review', createdAt: admin.firestore.FieldValue.serverTimestamp() });
     } else {
-      transaction.create(claimRef, { verificationId, status: 'checking', createdAt: admin.firestore.FieldValue.serverTimestamp() });
+      transaction.create(claimRef, { verificationId, status: 'pending_review', createdAt: admin.firestore.FieldValue.serverTimestamp() });
     }
     transaction.create(verificationRef, {
       receiptCode, amountExpected: Number(process.env.LANDLORD_REGISTRATION_AMOUNT || 1000),
-      emailHash: crypto.createHash('sha256').update(email).digest('hex'),
+      emailHash: crypto.createHash('sha256').update(email).digest('hex'), email,
       phone,
-      status: 'checking', createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 60 * 1000)
+      smsText: smsText.slice(0, 2000),
+      status: 'pending_review', createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
   });
   if (existingVerificationId) return res.status(202).json({ verificationId: existingVerificationId, status: existingStatus });
   if (duplicate) return res.status(409).json({ error: 'This M-Pesa receipt has already been used for a payment check.' });
 
-  try {
-    const token = await requestDarajaToken();
-    const response = await fetch(`${darajaBase()}/mpesa/transactionstatus/v1/query`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        Initiator: process.env.DARAJA_INITIATOR,
-        SecurityCredential: process.env.DARAJA_SECURITY_CREDENTIAL,
-        CommandID: 'TransactionStatusQuery', TransactionID: receiptCode,
-        PartyA: process.env.DARAJA_SHORTCODE, IdentifierType: process.env.DARAJA_IDENTIFIER_TYPE || '4',
-        ResultURL: darajaCallbackUrl(verificationId, 'result'),
-        QueueTimeOutURL: darajaCallbackUrl(verificationId, 'timeout'),
-        Remarks: 'FEDNICE landlord registration payment', Occasion: 'Registration'
-      })
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || String(payload.ResponseCode) !== '0') throw new Error('Daraja did not accept the transaction check. Check the shortcode and Transaction Status API access.');
-    await db.runTransaction(async transaction => {
-      const current = await transaction.get(verificationRef);
-      if (current.exists && current.get('status') === 'checking') transaction.update(verificationRef, { status: 'pending', originatorConversationId: payload.OriginatorConversationID || null, conversationId: payload.ConversationID || null });
-    });
-    return res.status(202).json({ verificationId, status: 'pending' });
-  } catch (error) {
-    await db.runTransaction(async transaction => {
-      const current = await transaction.get(verificationRef);
-      if (current.exists && current.get('status') === 'checking') {
-        transaction.update(verificationRef, { status: 'error', failureReason: 'Could not start M-Pesa verification.', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-        transaction.update(claimRef, { status: 'error', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-      }
-    }).catch(() => {});
-    console.error('Landlord Daraja verification request failed:', error.message);
-    return res.status(502).json({ error: 'We could not check that M-Pesa receipt right now. Please try again shortly.' });
-  }
+  return res.status(202).json({ verificationId, status: 'pending_review' });
 }));
 
-function darajaParameters(result) {
-  const values = result?.ResultParameters?.ResultParameter;
-  const entries = Array.isArray(values) ? values : values ? [values] : [];
-  return Object.fromEntries(entries.filter(item => item?.Key).map(item => [String(item.Key).toLowerCase().replace(/[^a-z]/g, ''), item.Value]));
-}
-function callbackTokenMatches(candidate) {
-  const expected = String(process.env.DARAJA_CALLBACK_TOKEN || '');
-  const actual = String(candidate || '');
-  if (!expected || !actual) return false;
-  const a = Buffer.from(expected), b = Buffer.from(actual);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-app.post('/api/daraja/result/:token/:verificationId', asyncRoute(async (req, res) => {
-  if (!callbackTokenMatches(req.params.token)) return res.status(404).end();
-  const ref = db.collection('landlordPaymentVerifications').doc(String(req.params.verificationId));
-  const doc = await ref.get();
-  if (!doc.exists) return res.status(404).end();
-  const result = req.body?.Result || {};
-  const params = darajaParameters(result);
-  const status = String(params.transactionstatus || '').trim().toLowerCase();
-  const resultReceipt = String(params.receiptno || result.TransactionID || '').trim().toUpperCase();
-  const amount = Number(params.amount);
-  const payerNames = (Array.isArray(result?.ResultParameters?.ResultParameter) ? result.ResultParameters.ResultParameter : [result?.ResultParameters?.ResultParameter].filter(Boolean))
-    .filter(item => String(item.Key || '').toLowerCase().replace(/[^a-z]/g, '') === 'debitpartyname').map(item => String(item.Value || ''));
-  const expectedPhone = String(doc.get('phone') || '').replace(/\D/g, '');
-  const payerMatches = payerNames.some(value => value.replace(/\D/g, '').includes(expectedPhone));
-  const matched = Number(result.ResultCode) === 0 && status === 'completed' && resultReceipt === doc.get('receiptCode') && amount === Number(doc.get('amountExpected')) && payerMatches;
-  const nextStatus = matched ? 'paid' : 'rejected';
-  await db.runTransaction(async transaction => {
-    const current = await transaction.get(ref);
-    if (!current.exists || ['paid','rejected','registered'].includes(current.get('status'))) return;
-    transaction.update(ref, {
-      status: nextStatus,
-      ...(matched ? { paidAt: admin.firestore.Timestamp.now(), verifiedAmount: amount, verifiedReceipt: resultReceipt } : { failureReason: 'M-Pesa did not confirm a completed payment for the required amount.' }),
-      callbackReceivedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-    const claimRef = db.collection('landlordPaymentClaims').doc(crypto.createHash('sha256').update(current.get('receiptCode')).digest('hex'));
-    transaction.update(claimRef, { status: nextStatus, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+function requirePaymentReviewer(req, res, next) {
+  const allowed = String(process.env.PAYMENT_REVIEWER_EMAILS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
+  if (!allowed.length) return res.status(503).json({ error: 'Payment review is not configured. Contact the system administrator.' });
+  requireAuth(req, res, () => {
+    if (!req.user.email || !allowed.includes(req.user.email.toLowerCase())) return res.status(403).json({ error: 'You are not allowed to review payments.' });
+    next();
   });
-  return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+}
+app.get('/api/admin/landlord-payment-verifications', requirePaymentReviewer, asyncRoute(async (req, res) => {
+  const snapshot = await db.collection('landlordPaymentVerifications').where('status', '==', 'pending_review').limit(100).get();
+  return res.json({ payments: snapshot.docs.map(doc => {
+    const data = doc.data();
+    return { id: doc.id, receiptCode: data.receiptCode, smsText: data.smsText || '', amountExpected: data.amountExpected, email: data.email || '', phone: data.phone || '', submittedAt: data.createdAt?.toDate?.().toISOString() || null };
+  }) });
 }));
-app.post('/api/daraja/timeout/:token/:verificationId', asyncRoute(async (req, res) => {
-  if (!callbackTokenMatches(req.params.token)) return res.status(404).end();
-  const ref = db.collection('landlordPaymentVerifications').doc(String(req.params.verificationId));
-  const doc = await ref.get();
-  if (doc.exists && !['paid','rejected','registered'].includes(doc.get('status'))) await ref.update({ status: 'timeout', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-  return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+app.post('/api/admin/landlord-payment-verifications/:verificationId/review', requirePaymentReviewer, asyncRoute(async (req, res) => {
+  const id = String(req.params.verificationId || '');
+  const decision = String(req.body.decision || '');
+  if (!/^[a-f0-9-]{36}$/i.test(id) || !['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'Invalid payment review request.' });
+  const ref = db.collection('landlordPaymentVerifications').doc(id);
+  let failure = '';
+  await db.runTransaction(async transaction => {
+    const payment = await transaction.get(ref);
+    if (!payment.exists || payment.get('status') !== 'pending_review') { failure = 'This payment is no longer waiting for review.'; return; }
+    const status = decision === 'approve' ? 'paid' : 'rejected';
+    transaction.update(ref, {
+      status, reviewedBy: req.user.email.toLowerCase(), reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...(decision === 'approve' ? { paidAt: admin.firestore.Timestamp.now(), verifiedAmount: Number(payment.get('amountExpected')), verifiedReceipt: payment.get('receiptCode') } : { failureReason: 'Payment was not confirmed in the Equity account.' })
+    });
+    const claimRef = db.collection('landlordPaymentClaims').doc(crypto.createHash('sha256').update(payment.get('receiptCode')).digest('hex'));
+    transaction.update(claimRef, { status, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  });
+  if (failure) return res.status(409).json({ error: failure });
+  return res.json({ reviewed: true, status: decision === 'approve' ? 'paid' : 'rejected' });
 }));
+
 app.get('/api/landlords/payment-verifications/:verificationId', rateLimit({ windowMs: 15 * 60 * 1000, max: 120, message: 'Too many status checks. Please wait and refresh.' }), asyncRoute(async (req, res) => {
   if (!/^[a-f0-9-]{36}$/i.test(req.params.verificationId)) return res.status(404).json({ error: 'Payment check not found.' });
   const doc = await db.collection('landlordPaymentVerifications').doc(req.params.verificationId).get();
