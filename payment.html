@@ -1,51 +1,22 @@
-<!DOCTYPE html>
-<html><head><title>FEDNICE - Secure Checkout</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-<script src="firebase.js"></script>
-<style>
-body{margin:0; min-height:100vh; font-family:Arial; display:flex; justify-content:center; align-items:center; background:#000; position:relative;}
-body::before{content:''; position:fixed; inset:0; background:url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=1200') center/cover no-repeat; filter:brightness(0.28);}
-body::after{content:''; position:fixed; inset:0; background:rgba(0,0,0,0.7);}
-.nav{position:fixed; top:0; left:0; right:0; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; z-index:10; background:rgba(0,0,0,0.7); border-bottom:1px solid #222;}
-.logo-area{display:flex; align-items:center; gap:10px;}.logo-area img{height:42px; background:white; padding:3px; border-radius:8px;}
-.card{position:relative; z-index:5; width:92%; max-width:480px; background:rgba(28,28,28,0.96); border:1px solid #ff6b2b55; border-radius:18px; padding:26px; margin-top:80px; margin-bottom:120px;}
-.footer{position:fixed; bottom:0; left:0; right:0; z-index:10; background:#000; border-top:1px solid #222; padding:12px; text-align:center; color:#aaa; font-size:12px; line-height:1.6;}
-.footer b{color:#ff6b2b;}
-.box{background:#2a1f18; border:1px solid #ff6b2b; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center;}
-.masked{color:white; font-weight:bold; font-size:18px;}
-.btn-show{background:#ff6b2b; border:none; color:white; padding:7px 16px; border-radius:20px; cursor:pointer; font-weight:bold;}
-input{width:100%; padding:13px; margin-top:6px; background:#222; border:1px solid #444; border-radius:10px; color:white; box-sizing:border-box;}
-.btn-pay{width:100%; margin-top:18px; background:#ff6b2b; color:white; border:none; padding:14px; border-radius:12px; font-size:16px; font-weight:bold; cursor:pointer;}
-</style></head>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>FEDNICE | Landlord Access</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:15px 22px;background:#111;border-bottom:1px solid #292929}.logo{width:140px;height:55px;object-fit:contain;object-position:left center}.card{width:min(540px,calc(100% - 32px));margin:9vh auto 36px;padding:28px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 10px;font-size:24px}p{color:#aaa;line-height:1.55}.notice{padding:14px;border:1px solid #393939;border-radius:10px;background:#1b1b1b;color:#ddd;font-size:14px;line-height:1.5}.actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:20px}a{display:inline-block;padding:12px 16px;border-radius:9px;background:#ff6a00;color:#111;text-decoration:none;font-weight:800}a.secondary{background:#1e1e1e;color:#fff;border:1px solid #444}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{padding:0;background:none;color:#ff9a53;text-decoration:none;font-weight:600}
+  </style>
+</head>
 <body>
-<div class="nav"><div class="logo-area"><img src="logo.png" onerror="this.style.display='none'"><div style="color:white; font-weight:bold;">FEDNICE <span style="color:#ff6b2b;">REAL ESTATE</span></div></div><div style="border:1px solid #ff6b2b; padding:6px 14px; border-radius:20px; color:#ff9a6b; font-size:12px;">🔒 Secure Checkout</div></div>
-<div class="card">
-<h2 style="color:white; margin:0 0 6px;">Pay KSH 2,500 to activate</h2>
-<p style="color:#aaa; font-size:13px;">Pay to 0797477437 → You receive unique one-time code via SMS</p>
-<div class="box"><div><div style="font-size:12px; color:#aaa;">M-Pesa Send Money</div><div id="masked" class="masked">07** ***437</div><div id="full" class="masked" style="display:none; color:#4ade80;">0797477437 - FEDNICE</div></div><button class="btn-show" onclick="toggleNum()" id="showBtn">Show</button></div>
-<label style="color:#ddd; font-size:13px; margin-top:14px; display:block;">One-Time Code *</label><input id="code" placeholder="FDN-XXXX-XXXX" style="text-transform:uppercase">
-<label style="color:#ddd; font-size:13px; margin-top:14px; display:block;">Your Phone *</label><input id="phone" placeholder="07XXXXXXXX">
-<button class="btn-pay" id="payBtn" onclick="verifyCode()">🔒 Verify & Activate</button>
-<p id="msg" style="color:#ffb28a; font-size:12px; text-align:center; margin-top:10px;"></p>
-</div>
-<div class="footer">For any assistance call <b>0797477437</b> or contact <b>fednicesolutions@gmail.com</b><br>Powered by M-Pesa & Firebase • Licensed by CBK • © 2025 FEDNICE</div>
-<script>
-let shown=false; function toggleNum(){shown=!shown; document.getElementById('masked').style.display=shown?'none':'block'; document.getElementById('full').style.display=shown?'block':'none'; document.getElementById('showBtn').innerText=shown?'Hide':'Show';}
-async function verifyCode(){
- const code=document.getElementById('code').value.trim().toUpperCase(); const phone=document.getElementById('phone').value.trim();
- const btn=document.getElementById('payBtn'); const msg=document.getElementById('msg');
- if(!code){alert('Enter code'); return;} btn.innerText='Verifying...'; btn.disabled=true;
- try{
-  const q=await db.collection('codes').where('code','==',code).limit(1).get();
-  if(q.empty){msg.innerText='❌ Invalid code. Pay KSH 2500 to 0797477437 then email fednicesolutions@gmail.com'; btn.innerText='Verify & Activate'; btn.disabled=false; return;}
-  const doc=q.docs[0]; const data=doc.data();
-  if(data.used){msg.innerText='❌ Code already USED on '+data.usedAt+' by '+data.usedBy+'. One code = one use. Call 0797477437'; btn.innerText='Code Burned'; return;}
-  await doc.ref.update({used:true, usedBy:phone, usedAt:new Date().toISOString()});
-  localStorage.setItem('fednice_user', JSON.stringify({code, phone, status:'verified', verifiedAt:Date.now()}));
-  alert('✅ Code verified! Karibu FEDNICE'); window.location.href='dashboard.html';
- }catch(e){msg.innerText='Error: '+e.message+' - Enable Firestore in Firebase console'; btn.disabled=false; btn.innerText='Verify & Activate';}
-}
-</script>
-</body></html>
+  <header class="topbar"><img class="logo" src="logo.png" alt="FEDNICE"></header>
+  <main class="card">
+    <h1>Landlord access</h1>
+    <div class="notice">The old KSh 2,500 code checkout has been retired because it did not verify M-Pesa payments and was not connected to landlord accounts. No old code records were deleted. Use your registered landlord account to sign in.</div>
+    <div class="actions"><a href="login.html">Landlord sign in</a><a class="secondary" href="register.html">Create landlord account</a></div>
+    <p>If you already paid and need help, call 0797477437 or email fednicesolutions@gmail.com.</p>
+  </main>
+  <footer class="footer">For any assistance call <a href="tel:0797477437">0797477437</a> or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></footer>
+</body>
+</html>

@@ -16,7 +16,7 @@ This separate Node service sends and checks one-time activation SMS codes. It us
    - `PORT`: supplied by most hosts; defaults to 3000 locally.
 4. Set `window.FEDNICE_API_BASE` in the root `api-config.js` to the deployed HTTPS API base URL.
 5. Enable Email/Password in Firebase Authentication and add the GitHub Pages domain under Authorized domains.
-6. Review `firestore.rules` before applying it to the existing Firebase project. It closes public browser access, so the legacy `admin.html` and `payment.html` screens that use the public `codes` collection will stop working under these rules. Migrate or remove those legacy flows first; do not paste the rules into Firebase blindly.
+6. Publish the root `firestore.rules` for the landlord portal. It allows each signed-in landlord to access only their own rental records and keeps activation challenges private to the Admin SDK. The former public `codes` generator/checkout has been retired; its existing Firestore documents are not deleted, but the browser cannot access them.
 
 The API keeps OTP hashes, five-minute expiry, a one-minute resend delay, and a five-attempt limit in Firestore. It never stores the password. The activation ticket is short-lived and consumed atomically when creating the landlord profile. Trial dates are recorded as 90 days from account activation. The KSh 1,000 charge is not collected automatically by this code; payment integration is a separate step.
 

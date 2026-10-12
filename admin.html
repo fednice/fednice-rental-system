@@ -1,17 +1,22 @@
-<!DOCTYPE html><html><head><title>FEDNICE Admin</title>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-<script src="firebase.js"></script>
-<style>body{background:#111; color:white; font-family:Arial; padding:20px;} button{background:#ff6b2b; border:none; color:white; padding:12px 18px; border-radius:10px; font-weight:bold; cursor:pointer;}.code{font-size:20px; background:#222; padding:14px; border-radius:10px; border:1px solid #ff6b2b; margin:12px 0;}.footer{margin-top:30px; color:#888; font-size:12px; text-align:center; border-top:1px solid #333; padding-top:10px;}</style>
-</head><body>
-<h2>🔑 FEDNICE Admin - Generate One-Time Codes</h2>
-<p>Confirm M-Pesa 2500 on 0797477437, then generate code and send to customer.</p>
-<button onclick="gen()">+ Generate New Code</button>
-<div id="out"></div>
-<h3>Last 20 Codes</h3><div id="list">Loading...</div>
-<div class="footer">For any assistance call <b style="color:#ff6b2b;">0797477437</b> or contact <b style="color:#ff6b2b;">fednicesolutions@gmail.com</b></div>
-<script>
-function makeCode(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c='FDN-'; for(let i=0;i<4;i++)c+=s[Math.floor(Math.random()*s.length)]; c+='-'; for(let i=0;i<4;i++)c+=s[Math.floor(Math.random()*s.length)]; return c;}
-async function gen(){const code=makeCode(); await db.collection('codes').add({code, used:false, createdAt:new Date().toISOString()}); document.getElementById('out').innerHTML=`<div class=code>${code} <button onclick="navigator.clipboard.writeText('${code}')">Copy</button> <a href="https://wa.me/?text=Your%20FEDNICE%20code%20is%20${code}.%20Enter%20at%20fednice.github.io/fednice-rental-system/payment.html" target="_blank" style="color:#4ade80; margin-left:10px;">WhatsApp</a></div>`; load();}
-async function load(){const snap=await db.collection('codes').orderBy('createdAt','desc').limit(20).get(); let h=''; snap.forEach(d=>{const x=d.data(); h+=`<div style="padding:8px; border-bottom:1px solid #333;">${x.code} — ${x.used?'🔴 USED by '+x.usedBy+' on '+x.usedAt:'🟢 UNUSED'}</div>`}); document.getElementById('list').innerHTML=h||'No codes yet';} load();
-</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>FEDNICE | Admin</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#0a0a0a;color:#fff;font:15px Arial,sans-serif}.topbar{padding:15px 22px;background:#111;border-bottom:1px solid #292929}.logo{width:140px;height:55px;object-fit:contain;object-position:left center}.card{width:min(560px,calc(100% - 32px));margin:9vh auto 36px;padding:28px;background:#141414;border:1px solid #292929;border-radius:16px}h1{margin:0 0 10px;font-size:24px}p{color:#aaa;line-height:1.55}.notice{padding:14px;border:1px solid #805222;border-radius:10px;background:#21190f;color:#ffd38a;font-size:14px;line-height:1.5}.actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:20px}a{display:inline-block;padding:12px 16px;border-radius:9px;background:#ff6a00;color:#111;text-decoration:none;font-weight:800}a.secondary{background:#1e1e1e;color:#fff;border:1px solid #444}.footer{margin-top:auto;padding:14px;text-align:center;border-top:1px solid #292929;background:#111;color:#aaa;font-size:12px;line-height:1.6}.footer a{padding:0;background:none;color:#ff9a53;text-decoration:none;font-weight:600}
+  </style>
+</head>
+<body>
+  <header class="topbar"><img class="logo" src="logo.png" alt="FEDNICE"></header>
+  <main class="card">
+    <h1>Legacy code generator</h1>
+    <p>The old one-time access-code screen has been retired. It allowed anyone with the page link to generate or view codes, so it cannot safely use the new private Firestore rules.</p>
+    <div class="notice">Your existing code records have not been deleted. The newer landlord flow uses phone activation and a personal email/password account.</div>
+    <div class="actions"><a href="register.html">Create landlord account</a><a class="secondary" href="login.html">Landlord sign in</a></div>
+  </main>
+  <footer class="footer">For any assistance call <a href="tel:0797477437">0797477437</a> or contact <a href="mailto:fednicesolutions@gmail.com">fednicesolutions@gmail.com</a></footer>
+</body>
+</html>
