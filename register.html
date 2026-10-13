@@ -42,11 +42,12 @@ input:focus,select:focus{border-color:#FF6A00}
 <h1>Kenyan Rental Properties</h1>
 <p class="sub">Mabati Houses • Bedsitters • Apartments • Landlord Focused 🇰🇪</p>
 <div class="slideshow" id="slideshow">
-<div class="slide active"><img src="https://www.pazuriproperties.com/photos/aq1.jpg" alt="Queens Apartments rental building on Kenyatta Road in Kenya"><div class="badge"><b>1/3 • Apartment rentals</b><br>Kenyatta Road · Photo: <a href="https://www.pazuriproperties.com/Kenyatta.php?braxton=Kenyatta+road" target="_blank" rel="noopener">Pazuri Properties</a></div></div>
-<div class="slide"><img src="https://biznakenya.com/wp-content/uploads/2020/07/Mabati-Rentals-in-Kenya-696x665.jpg" alt="Rows of mabati rental units in Kenya"><div class="badge"><b>2/3 • Mabati rental homes</b><br>Affordable rental housing · Photo: <a href="https://biznakenya.com/slum-landlords-in-kenya/" target="_blank" rel="noopener">Bizna Kenya</a></div></div>
-<div class="slide"><img src="https://propscout.co.ke/storage/properties/files/1415/webp/zvop1-1-and-2-bedroom-for-rent-along-naivasha-road.webp" alt="Apartment building on Naivasha Road in Nairobi"><div class="badge"><b>3/3 • Apartment homes</b><br>Naivasha Road, Nairobi · Photo: <a href="https://propscout.co.ke/properties/1415/1-and-2-bedroom-for-rent-along-naivasha-road" target="_blank" rel="noopener">PropScout</a></div></div>
+<div class="slide active"><img src="https://www.pazuriproperties.com/photos/aq1.jpg" alt="Queens Apartments rental building on Kenyatta Road in Kenya"><div class="badge"><b>1/4 • Apartment rentals</b><br>Kenyatta Road · Photo: <a href="https://www.pazuriproperties.com/Kenyatta.php?braxton=Kenyatta+road" target="_blank" rel="noopener">Pazuri Properties</a></div></div>
+<div class="slide"><img src="https://biznakenya.com/wp-content/uploads/2020/07/Mabati-Rentals-in-Kenya-696x665.jpg" alt="Rows of mabati rental units in Kenya"><div class="badge"><b>2/4 • Mabati rental homes</b><br>Affordable rental housing · Photo: <a href="https://biznakenya.com/slum-landlords-in-kenya/" target="_blank" rel="noopener">Bizna Kenya</a></div></div>
+<div class="slide"><img src="https://propscout.co.ke/storage/properties/files/1415/webp/zvop1-1-and-2-bedroom-for-rent-along-naivasha-road.webp" alt="Apartment building on Naivasha Road in Nairobi"><div class="badge"><b>3/4 • Apartment homes</b><br>Naivasha Road, Nairobi · Photo: <a href="https://propscout.co.ke/properties/1415/1-and-2-bedroom-for-rent-along-naivasha-road" target="_blank" rel="noopener">PropScout</a></div></div>
+<div class="slide"><img src="slideshow.png" alt="Modern apartment towers beside a swimming pool"><div class="badge"><b>4/4 • Apartment living</b><br>Modern apartment residence</div></div>
 </div>
-<div class="dots"><div class="dot active" onclick="goSlide(0)"></div><div class="dot" onclick="goSlide(1)"></div><div class="dot" onclick="goSlide(2)"></div></div>
+<div class="dots"><div class="dot active" onclick="goSlide(0)"></div><div class="dot" onclick="goSlide(1)"></div><div class="dot" onclick="goSlide(2)"></div><div class="dot" onclick="goSlide(3)"></div></div>
 <p class="sub" style="text-align:center;margin-top:12px">Mabati rentals, bedsitters, and apartment blocks • Photo sources linked above</p>
 </div>
 <div class="right">
@@ -129,12 +130,12 @@ function loadConstituencies(){
   if(!c){cons.innerHTML='<option>Select County First</option>';return;}
   counties[c].forEach(co=>{let o=document.createElement('option');o.value=co;o.textContent=co;cons.appendChild(o);});
 }
-let cur=0;function goSlide(n){cur=n;showSlide();}
+let cur=0;const slideCount=document.querySelectorAll('.slide').length;function goSlide(n){cur=n;showSlide();}
 function showSlide(){
   document.querySelectorAll('.slide').forEach((s,i)=>s.classList.toggle('active',i===cur));
   document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
 }
-setInterval(()=>{cur=(cur+1)%3;showSlide();},3500);
+setInterval(()=>{cur=(cur+1)%slideCount;showSlide();},3500);
 function checkStrength(){
   const p=document.getElementById('password').value;
   let score=0;if(p.length>=8)score+=25;if(/[A-Z]/.test(p))score+=25;if(/[0-9]/.test(p))score+=25;if(/[^A-Za-z0-9]/.test(p))score+=25;
