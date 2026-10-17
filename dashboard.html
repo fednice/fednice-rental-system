@@ -42,6 +42,7 @@
           <section class="panel" aria-labelledby="houses-title"><div class="section-heading"><h2 id="houses-title">Your houses</h2><span id="house-count" class="section-count">0 houses</span></div><div id="house-list" class="house-grid"></div></section>
           <section class="panel" aria-labelledby="tenants-title"><div class="section-heading"><h2 id="tenants-title">Tenants &amp; rent dates</h2><span id="tenant-count" class="section-count">0 tenants</span></div><p class="help" style="margin:-5px 0 13px">When rent is due soon or overdue, select WhatsApp reminder to open a ready-to-send message. Review it and tap Send in WhatsApp. Generate a one-time setup code for a tenant so they can create their phone-and-password login.</p><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>House</th><th>Joined</th><th>Rent due</th><th>Rent</th><th>Actions</th></tr></thead><tbody id="tenant-rows"></tbody></table></div><div id="tenant-empty" class="empty" hidden>No tenants yet. Add a tenant using the form.</div><div id="tenant-access-result" class="notice" style="margin:14px 0 0" hidden><strong>One-time tenant setup code</strong><p id="tenant-access-code" style="margin:8px 0;font-size:1.5rem;letter-spacing:.16em;font-weight:800;color:#ff9a53"></p><p id="tenant-access-expiry" class="help"></p><button id="tenant-access-copy" class="record-button" type="button">Copy setup code</button></div></section>
           <section class="panel" aria-labelledby="billing-title"><div class="section-heading"><h2 id="billing-title">Billing &amp; current rent cycle</h2></div><p class="help">Select a tenant to review rent and update any water or power bill amounts for the current cycle. Only you as landlord can edit these charges.</p><form id="billing-form"><label>Tenant<select id="billing-tenant" required><option value="">Add a tenant first</option></select></label><div id="billing-summary" class="notice" style="margin:0">Select a tenant to see their monthly rent and next due date.</div><label>Water bill (KSh, optional)<input id="billing-water-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><label>Power bill (KSh, optional)<input id="billing-power-bill" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank if none"></label><button id="save-billing" class="button primary" type="submit">Save billing details</button><p id="billing-message" class="form-message" role="status" aria-live="polite"></p></form></section>
+          <section class="panel" aria-labelledby="maintenance-title"><div class="section-heading"><h2 id="maintenance-title">Maintenance requests</h2><span id="maintenance-count" class="section-count"></span><button id="refresh-maintenance-requests" class="record-button" type="button">Refresh</button></div><p class="help">Requests submitted by tenants in your properties. Update the status so tenants can see progress.</p><div id="landlord-maintenance-list" class="empty">Loading maintenance requests…</div></section>
           <section class="panel" aria-labelledby="payment-submissions-title"><div class="section-heading"><h2 id="payment-submissions-title">Tenant payment submissions</h2><span id="pending-payment-count" class="section-count"></span><button id="refresh-payment-submissions" class="record-button" type="button">Refresh</button></div><p class="help">Review the tenant’s M-Pesa message and confirm the transaction in your M-Pesa statement before marking it paid.</p><div id="payment-submission-list" class="empty">Loading payment submissions…</div></section>
         </div>
         <aside>
@@ -69,6 +70,7 @@
       let tenants = [];
       let saving = false;
       let paymentRefreshTimer = null;
+      let maintenanceRefreshTimer = null;
       let coverSlides = [];
       let coverSlideIndex = 0;
       let coverSlideTimer = null;
@@ -387,6 +389,9 @@
           await checkLandlordProfile(user);
           await loadRecords();
           await loadPaymentSubmissions();
+          await loadLandlordMaintenanceRequests();
+          if (maintenanceRefreshTimer) clearInterval(maintenanceRefreshTimer);
+          maintenanceRefreshTimer = setInterval(loadLandlordMaintenanceRequests, 30000);
           if (paymentRefreshTimer) clearInterval(paymentRefreshTimer);
           paymentRefreshTimer = setInterval(loadPaymentSubmissions, 30000);
           content.hidden = false;
@@ -464,6 +469,25 @@
           }).join('');
         } catch (error) { container.className = 'empty'; container.textContent = error.message || 'Could not load payment submissions.'; }
       }
+      async function loadLandlordMaintenanceRequests() {
+        const container=document.getElementById('landlord-maintenance-list'); const user=firebase.auth().currentUser;
+        if(!user||!apiBase)return;
+        try {
+          const token=await user.getIdToken(); const response=await fetch(`${apiBase}/api/landlords/maintenance-requests`,{headers:{Authorization:`Bearer ${token}`}}); const data=await response.json().catch(()=>({}));
+          if(!response.ok)throw new Error(data.error||'Could not load maintenance requests.');
+          const requests=data.requests||[]; const openCount=requests.filter(item=>item.status!=='resolved').length;
+          document.getElementById('maintenance-count').textContent=openCount?`${openCount} open`:'All clear';
+          if(!requests.length){container.className='empty';container.textContent='No tenant maintenance requests yet.';return;}
+          container.className='';
+          container.innerHTML=requests.map(item=>{const status=['open','in_progress','resolved'].includes(item.status)?item.status:'open';const photo=safePhoto(item.photoDataUrl);const next=status==='open'?'<button class="record-button" type="button" data-maintenance-status="in_progress">Mark in progress</button>':status==='in_progress'?'<button class="record-button" type="button" data-maintenance-status="resolved">Mark resolved</button>':'<button class="record-button" type="button" data-maintenance-status="open">Reopen</button>';return `<article data-maintenance-request-id="${escapeHtml(item.id)}" style="padding:14px 0;border-bottom:1px solid #2b2b2b"><div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px"><strong>${escapeHtml(item.tenantName)} · ${escapeHtml(item.houseNumber)}</strong><span class="status ${status==='resolved'?'occupied':''}">${escapeHtml(status.replace('_',' ').toUpperCase())}</span></div><p class="help" style="margin:7px 0"><strong>${escapeHtml(item.category)}</strong> · ${item.priority==='urgent'?'Urgent':'Normal'} · ${item.createdAt?formatDate(new Date(item.createdAt)):'Just now'}</p><p style="white-space:pre-wrap;line-height:1.5">${escapeHtml(item.description)}</p>${photo?`<img src="${photo}" alt="Tenant maintenance report photo" style="display:block;max-width:min(100%,360px);max-height:240px;object-fit:cover;border-radius:9px;margin:10px 0">`:''}<div class="record-actions">${next}</div></article>`;}).join('');
+        }catch(error){container.className='empty';container.textContent=error.message||'Could not load maintenance requests.';}
+      }
+      document.getElementById('refresh-maintenance-requests').addEventListener('click',loadLandlordMaintenanceRequests);
+      document.getElementById('landlord-maintenance-list').addEventListener('click',async event=>{
+        const button=event.target.closest('[data-maintenance-status]');if(!button||saving)return;
+        saving=true;button.disabled=true;
+        try{const token=await firebase.auth().currentUser.getIdToken();const response=await fetch(`${apiBase}/api/landlords/maintenance-requests/${encodeURIComponent(button.closest('article')?.dataset.maintenanceRequestId||'')}/status`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({status:button.dataset.maintenanceStatus})});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Could not update this request.');await loadLandlordMaintenanceRequests();showNotice('Maintenance request updated.');}catch(error){showNotice(error.message||'Could not update this request.',true);}finally{saving=false;}
+      });
       document.getElementById('refresh-payment-submissions').addEventListener('click', loadPaymentSubmissions);
       document.getElementById('payment-submission-list').addEventListener('click', async event => {
         const button = event.target.closest('[data-review-payment]');

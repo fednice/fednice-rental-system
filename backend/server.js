@@ -16,7 +16,7 @@ app.disable('x-powered-by');
 // Render terminates HTTPS at its proxy. Trust one proxy hop so req.ip is the client address.
 app.set('trust proxy', 1);
 app.use(cors({ origin: process.env.CORS_ORIGIN.split(',').map(value => value.trim()), methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] }));
-app.use(express.json({ limit: '16kb' }));
+app.use(express.json({ limit: '512kb' }));
 
 app.use((req, res, next) => {
   res.set({
@@ -55,6 +55,7 @@ function rateLimit({ windowMs, max, message }) {
 }
 const tenantRegisterLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: 'Too many registration attempts. Please wait and try again.' });
 const tenantLoginLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, message: 'Too many login attempts. Please wait and try again.' });
+const maintenanceRequestLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: 'Too many maintenance reports. Please wait and try again.' });
 
 const hash = value => crypto.createHmac('sha256', process.env.OTP_SECRET).update(value).digest('hex');
 const phoneKey = phone => crypto.createHash('sha256').update(phone).digest('hex');
@@ -524,6 +525,81 @@ app.get('/api/landlords/payment-submissions', requireAuth, requireActiveLandlord
     };
   }).sort((a,b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || ''))).slice(0,30);
   return res.json({ submissions });
+}));
+
+app.post('/api/tenants/maintenance-requests', requireAuth, maintenanceRequestLimit, asyncRoute(async (req, res) => {
+  const tenantQuery = await db.collectionGroup('tenants').where('tenantUid', '==', req.user.uid).limit(1).get();
+  if (tenantQuery.empty) return res.status(403).json({ error: 'Your tenant login is no longer active.' });
+  const tenantDoc = tenantQuery.docs[0];
+  const tenant = tenantDoc.data();
+  const category = String(req.body.category || '').trim();
+  const priority = String(req.body.priority || '').trim();
+  const description = String(req.body.description || '').trim();
+  const allowedCategories = ['plumbing', 'electrical', 'security', 'structure', 'other'];
+  if (!allowedCategories.includes(category)) return res.status(400).json({ error: 'Choose a valid issue category.' });
+  if (!['normal', 'urgent'].includes(priority)) return res.status(400).json({ error: 'Choose a valid urgency.' });
+  if (description.length < 8 || description.length > 1000) return res.status(400).json({ error: 'Describe the issue in 8 to 1,000 characters.' });
+  const photoDataUrl = String(req.body.photoDataUrl || '');
+  if (photoDataUrl && (photoDataUrl.length > 400000 || !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(photoDataUrl))) {
+    return res.status(400).json({ error: 'The optional photo must be a small JPEG, PNG, or WebP image.' });
+  }
+  const landlordUid = tenantDoc.ref.parent.parent.id;
+  const requestRef = db.collection('landlords').doc(landlordUid).collection('maintenanceRequests').doc();
+  await requestRef.create({
+    tenantId: tenantDoc.id, tenantUid: req.user.uid,
+    tenantName: String(tenant.fullName || '').slice(0, 120),
+    houseNumber: String(tenant.houseNumber || '').slice(0, 80),
+    category, priority, description, photoDataUrl,
+    status: 'open', createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+  return res.status(201).json({ submitted: true, id: requestRef.id });
+}));
+
+app.get('/api/tenants/maintenance-requests', requireAuth, asyncRoute(async (req, res) => {
+  const tenantQuery = await db.collectionGroup('tenants').where('tenantUid', '==', req.user.uid).limit(1).get();
+  if (tenantQuery.empty) return res.status(403).json({ error: 'Your tenant login is no longer active.' });
+  const tenantDoc = tenantQuery.docs[0];
+  const landlordUid = tenantDoc.ref.parent.parent.id;
+  const snapshot = await db.collection('landlords').doc(landlordUid).collection('maintenanceRequests').where('tenantId', '==', tenantDoc.id).limit(30).get();
+  const requests = snapshot.docs.map(doc => {
+    const item = doc.data();
+    if (item.tenantUid !== req.user.uid) return null;
+    return {
+      id: doc.id, category: item.category, priority: item.priority, description: item.description,
+      photoDataUrl: item.photoDataUrl || '', status: item.status,
+      createdAt: item.createdAt?.toDate?.().toISOString() || null,
+      updatedAt: item.updatedAt?.toDate?.().toISOString() || null
+    };
+  }).filter(Boolean).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return res.json({ requests });
+}));
+
+app.get('/api/landlords/maintenance-requests', requireAuth, requireActiveLandlord, asyncRoute(async (req, res) => {
+  const snapshot = await db.collection('landlords').doc(req.user.uid).collection('maintenanceRequests').limit(100).get();
+  const requests = snapshot.docs.map(doc => {
+    const item = doc.data();
+    return {
+      id: doc.id, tenantId: item.tenantId, tenantName: item.tenantName, houseNumber: item.houseNumber,
+      category: item.category, priority: item.priority, description: item.description,
+      photoDataUrl: item.photoDataUrl || '', status: item.status,
+      createdAt: item.createdAt?.toDate?.().toISOString() || null,
+      updatedAt: item.updatedAt?.toDate?.().toISOString() || null
+    };
+  }).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return res.json({ requests });
+}));
+
+app.post('/api/landlords/maintenance-requests/:requestId/status', requireAuth, requireActiveLandlord, asyncRoute(async (req, res) => {
+  const requestId = String(req.params.requestId || '');
+  const status = String(req.body.status || '');
+  if (!/^[A-Za-z0-9_-]{1,150}$/.test(requestId)) return res.status(400).json({ error: 'Choose a valid maintenance request.' });
+  if (!['open', 'in_progress', 'resolved'].includes(status)) return res.status(400).json({ error: 'Choose a valid maintenance status.' });
+  const requestRef = db.collection('landlords').doc(req.user.uid).collection('maintenanceRequests').doc(requestId);
+  const request = await requestRef.get();
+  if (!request.exists) return res.status(404).json({ error: 'Maintenance request not found.' });
+  await requestRef.update({ status, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  return res.json({ updated: true, status });
 }));
 
 app.get('/api/tenants/me', requireAuth, asyncRoute(async (req, res) => {

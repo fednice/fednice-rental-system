@@ -47,6 +47,12 @@ service cloud.firestore {
       match /payments/{paymentId} {
         allow read, write: if false;
       }
+
+      // Maintenance reports include tenant-submitted details and photos; the
+      // authenticated backend enforces tenant and landlord ownership.
+      match /maintenanceRequests/{requestId} {
+        allow read, write: if false;
+      }
     }
 
     // OTP challenges, tenant credentials/access codes, and receipt claims are backend-only.
