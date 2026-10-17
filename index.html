@@ -61,6 +61,17 @@
     .tenant .audience-label { color: var(--blue); }
     .audience-card h3 { margin: 0 0 10px; font-size: 1.3rem; }
     .audience-card p { max-width: 470px; margin: 0; color: rgba(255,255,255,.72); line-height: 1.65; }
+    .features-section { padding: 76px clamp(22px, 7vw, 96px) 86px; background: #080808; }
+    .features-inner { width: min(1080px, 100%); margin: 0 auto; }
+    .features-kicker { margin: 0 0 12px; color: var(--orange); font-size: .78rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .features-heading { max-width: 720px; margin: 0; font-size: clamp(1.9rem, 3.8vw, 2.8rem); line-height: 1.1; letter-spacing: -.03em; }
+    .features-intro { max-width: 660px; margin: 16px 0 32px; color: rgba(255,255,255,.68); line-height: 1.7; }
+    .features-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .feature-card { min-height: 205px; padding: 25px; border: 1px solid #292929; border-radius: 15px; background: linear-gradient(145deg, #151515, #0f0f0f); }
+    .feature-number { display: inline-grid; width: 34px; height: 34px; place-items: center; margin-bottom: 20px; border: 1px solid rgba(255,107,8,.5); border-radius: 10px; color: var(--orange); font-size: .78rem; font-weight: 800; }
+    .feature-card h3 { margin: 0 0 10px; font-size: 1.15rem; }
+    .feature-card p { margin: 0; color: rgba(255,255,255,.68); line-height: 1.65; }
+    .features-note { margin: 22px 0 0; padding-left: 14px; border-left: 2px solid var(--blue); color: rgba(255,255,255,.64); font-size: .9rem; line-height: 1.65; }
     footer a { color: var(--blue); text-decoration: none; }
     footer a:hover, footer a:focus-visible { text-decoration: underline; }
     .footer-logo { height: 42px; width: auto; max-width: 150px; object-fit: contain; }
@@ -78,6 +89,9 @@
       .audience-section { padding: 54px 22px 60px; }
       .audience-grid { grid-template-columns: 1fr; }
       .audience-card { min-height: auto; padding: 23px; }
+      .features-section { padding: 56px 22px 64px; }
+      .features-grid { grid-template-columns: 1fr; }
+      .feature-card { min-height: auto; }
       footer { flex-direction: column; gap: 9px; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -140,6 +154,32 @@
             <p>See your rent due date, see an on-screen dashboard reminder five days ahead, and submit payment details for landlord confirmation.</p>
           </article>
         </div>
+      </div>
+    </section>
+
+    <section class="features-section" aria-labelledby="features-heading">
+      <div class="features-inner">
+        <p class="features-kicker">Rental management in Kenya</p>
+        <h2 class="features-heading" id="features-heading">The important rental details, in one clear place.</h2>
+        <p class="features-intro">FEDNICE helps landlords organize their properties and gives tenants a simple way to keep up with the details of their tenancy.</p>
+        <div class="features-grid">
+          <article class="feature-card">
+            <span class="feature-number" aria-hidden="true">01</span>
+            <h3>Organize properties</h3>
+            <p>Keep apartment and house details, unit names, rent prices, meter references, and tenant records together.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-number" aria-hidden="true">02</span>
+            <h3>Track rent and bills</h3>
+            <p>View rent dates and any water or power charges the landlord has added to the tenant’s billing details.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-number" aria-hidden="true">03</span>
+            <h3>Keep payment updates clear</h3>
+            <p>Tenants can submit their payment details for the landlord to review, and see when a payment is confirmed.</p>
+          </article>
+        </div>
+        <p class="features-note">Tenants see the rental information linked to their own account. Landlords manage their own property and billing records.</p>
       </div>
     </section>
   </main>
