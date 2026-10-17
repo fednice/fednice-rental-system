@@ -142,18 +142,41 @@ function checkStrength(){
   const bar=document.getElementById('strengthBar');bar.style.width=score+'%';bar.style.background=score<50?'#ff4444':score<75?'orange':'#00ff88';
 }
 function togglePw(){const i=document.getElementById('password');i.type=i.type==='password'?'text':'password';}
-function handleRegister(e){
+async function handleRegister(e){
+  sessionStorage.removeItem('fednicePendingLandlord');
   e.preventDefault();
   const button=e.currentTarget.querySelector('button[type="submit"]');
-  const pendingLandlord={fullName:document.getElementById('fullName').value.trim(),email:document.getElementById('email').value.trim(),idNo:document.getElementById('idNo').value.trim(),phone:document.getElementById('phone').value.trim(),county:countySelect.value,constituency:document.getElementById('constituency').value,propertyName:document.getElementById('propertyName').value.trim(),password:document.getElementById('password').value};
+  const profile={fullName:document.getElementById('fullName').value.trim(),email:document.getElementById('email').value.trim().toLowerCase(),idNo:document.getElementById('idNo').value.trim(),phone:document.getElementById('phone').value.trim(),county:countySelect.value,constituency:document.getElementById('constituency').value,propertyName:document.getElementById('propertyName').value.trim()};
+  const message=document.getElementById('registerMessage');
+  button.disabled=true;
   try {
-    // Kept only in this browser tab until the payment and email-verification steps finish.
-    sessionStorage.setItem('fednicePendingLandlord',JSON.stringify(pendingLandlord));
-    button.disabled=true;
-    document.getElementById('registerMessage').textContent='Taking you to secure payment verification…';
+    message.textContent='Creating your secure sign-in and saving your registration…';
+    const auth=firebase.auth();
+    let user=auth.currentUser;
+    if(user&&user.email.toLowerCase()!==profile.email)throw new Error('Sign out of the other account before registering this email.');
+    if(!user){
+      try{const credential=await auth.createUserWithEmailAndPassword(profile.email,document.getElementById('password').value);user=credential.user;}
+      catch(error){
+        if(error.code==='auth/email-already-in-use'){
+          try{user=(await auth.signInWithEmailAndPassword(profile.email,document.getElementById('password').value)).user;}
+          catch{throw new Error('This email already has a sign-in. Check the password or use the sign-in page.');}
+        }
+        if(error.code==='auth/weak-password')throw new Error('Choose a stronger password with at least 8 characters.');
+        if(error.code==='auth/invalid-email')throw new Error('Enter a valid email address.');
+        if(error.code!=='auth/email-already-in-use')throw error;
+      }
+    }
+    const token=await user.getIdToken();
+    const response=await fetch((window.FEDNICE_API_BASE||'').replace(/\/$/,'')+'/api/landlords/registration-intent',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({profile})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(result.error||'Could not save your registration. Please try again.');
+    // Remove any credential left by the older registration flow.
+    sessionStorage.removeItem('fednicePendingLandlord');
+    message.textContent='Registration saved. Continue to the secure payment page…';
     window.location.href='payment.html';
-  } catch {
-    document.getElementById('registerMessage').textContent='Your browser could not save this short registration step. Please enable session storage and try again.';
+  } catch(error) {
+    message.textContent=error.message||'Could not continue registration. Please try again.';
+    button.disabled=false;
   }
   return false;
 }

@@ -8,7 +8,14 @@ service cloud.firestore {
         && profile.data != null
         && (!('emailVerificationRequired' in profile.data)
           || profile.data.emailVerificationRequired != true
-          || request.auth.token.email_verified == true);
+          || request.auth.token.email_verified == true)
+        && (!('subscriptionStatus' in profile.data)
+          || profile.data.subscriptionStatus == 'active'
+          || (profile.data.subscriptionStatus == 'trial'
+            && 'trialEndsAt' in profile.data
+            && request.time < profile.data.trialEndsAt))
+        && (!('subscriptionEndsAt' in profile.data)
+          || request.time < profile.data.subscriptionEndsAt);
     }
 
     // Landlord profiles are created and maintained by the trusted backend.
@@ -24,7 +31,16 @@ service cloud.firestore {
         allow read, create, update, delete: if landlordCanUse(uid);
       }
       match /tenants/{tenantId} {
-        allow read, create, update, delete: if landlordCanUse(uid);
+        allow read, delete: if landlordCanUse(uid);
+        // Tenant login links are created and revoked only by the trusted backend.
+        // This prevents a browser client from attaching somebody else's Firebase UID.
+        allow create: if landlordCanUse(uid)
+          && !('tenantUid' in request.resource.data)
+          && !('accountCreatedAt' in request.resource.data)
+          && !('tenantAccessRevokedAt' in request.resource.data);
+        allow update: if landlordCanUse(uid)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['tenantUid', 'accountCreatedAt', 'tenantAccessRevokedAt']);
       }
 
       // Payment records are created/reviewed by the backend only.
@@ -40,6 +56,7 @@ service cloud.firestore {
     match /mpesaReceiptClaims/{documentId} { allow read, write: if false; }
     match /landlordPaymentVerifications/{documentId} { allow read, write: if false; }
     match /landlordPaymentClaims/{documentId} { allow read, write: if false; }
+    match /landlordRegistrationIntents/{uid} { allow read, write: if false; }
 
     // Deny every collection not explicitly listed above.
     match /{document=**} {

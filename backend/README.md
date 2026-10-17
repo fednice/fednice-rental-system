@@ -2,11 +2,13 @@
 
 For the current setup, landlords pay through Equity Paybill 247247. The payment is not verified automatically by Daraja. Fednice must check the receipt in the Equity account or statement before approving it.
 
-1. `register.html` collects the profile and keeps the password temporarily in this browser tab's `sessionStorage`.
-2. It redirects to `payment.html`. The page shows KSh 1,000 (configurable) and the Equity account number configured on the backend.
-3. The landlord pastes the M-Pesa receipt and original message. The backend stores a pending review request; this submission is not proof of payment.
-4. An authorized reviewer opens `admin.html`, signs in, matches the receipt and exact amount against the Equity account/statement, then approves or rejects it.
-5. If approved, the waiting registration continues, creates the Firebase account/profile, and sends an email-verification link. The subscription lasts 90 days from the verified payment.
+1. `register.html` creates the landlord's Firebase Authentication account. The raw password is sent directly to Firebase and is never stored in browser session storage.
+2. The authenticated registration details are saved privately by the backend in `landlordRegistrationIntents`; Firestore client rules deny access to that collection.
+3. The landlord enters the payment page. It shows KSh 1,000 (configurable) and the Equity account number configured on the backend.
+4. The landlord pastes the M-Pesa receipt and original message. The authenticated backend links the review request to their account; a pasted SMS is not proof of payment.
+5. An authorized, email-verified reviewer opens `admin.html`, matches the receipt and exact amount against the Equity account/statement, then approves or rejects it.
+6. On approval, a first-time account profile is created and an email-verification link is sent. The subscription lasts 90 days from the verified payment. Existing landlords submit renewal payments from `renewal.html`; approval extends the existing account by 90 days without changing the password or rental records.
+7. Expired subscriptions cannot access landlord houses, tenants, or billing. The landlord can sign in and use `renewal.html` to restore access. Tenant payment and login functions remain available.
 
 ## Render environment variables
 
@@ -19,13 +21,13 @@ Required for the backend:
 - `CORS_ORIGIN` — `https://fednice.github.io`.
 - `AT_USERNAME` and `AT_API_KEY` — existing Africa's Talking settings used for optional tenant SMS.
 - `EQUITY_ACCOUNT_NUMBER` — optional override for the account/reference number used under Equity Paybill 247247. Defaults to `0726387275`; confirm before changing it.
-- `PAYMENT_REVIEWER_EMAILS` — comma-separated Firebase Authentication email addresses allowed to approve/reject pending landlord payment submissions. Use only trusted administrators.
+- `PAYMENT_REVIEWER_EMAILS` — comma-separated Firebase Authentication email addresses allowed to approve/reject pending landlord payment submissions. Reviewers must also verify their email. Use only trusted administrators.
 
 Optional:
 
 - `LANDLORD_REGISTRATION_AMOUNT` — defaults to `1000` KSh.
 
-After changing backend code or environment variables, redeploy the Render service. Publish the updated `payment.html` and `admin.html` through GitHub Pages. Firestore rules keep payment-review records private to the trusted backend service account.
+After changing backend code or environment variables, redeploy the Render service. Publish the updated frontend and Firestore rules. Firestore rules keep payment-review and landlord registration-intent records private to the trusted backend service account.
 
 ## Important limits of the current payment method
 

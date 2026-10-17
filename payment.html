@@ -45,10 +45,37 @@
     let activeVerificationId=sessionStorage.getItem('fednicePendingPaymentVerification')||'';
     let activeReceiptCode=sessionStorage.getItem('fednicePendingReceiptCode')||'';
     async function api(path,options={}){
-      const response=await fetch(apiBase+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
+      const user=firebase.auth().currentUser;
+      const token=user?await user.getIdToken():'';
+      const response=await fetch(apiBase+path,{...options,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{}),...(options.headers||{})}});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.error||'The request could not be completed. Please try again.');
       return data;
+    }
+    async function saveRegistrationIntent(profile){
+      const user=firebase.auth().currentUser;
+      if(!user||user.email.toLowerCase()!==String(profile.email||'').toLowerCase())throw new Error('Sign in with the email used for this registration, then try again.');
+      await api('/api/landlords/registration-intent',{method:'POST',body:JSON.stringify({profile})});
+      pendingLandlord={email:user.email,phone:profile.phone,fullName:profile.fullName,propertyName:profile.propertyName};
+    }
+    async function loadRegistrationIntent(){
+      let legacy=null;
+      try{legacy=JSON.parse(sessionStorage.getItem('fednicePendingLandlord')||'null');}catch{}
+      if(legacy)sessionStorage.removeItem('fednicePendingLandlord');
+      let user=firebase.auth().currentUser;
+      if(!user&&legacy?.password){
+        try{user=(await firebase.auth().createUserWithEmailAndPassword(legacy.email,legacy.password)).user;}
+        catch(error){if(error.code==='auth/email-already-in-use')user=(await firebase.auth().signInWithEmailAndPassword(legacy.email,legacy.password)).user;else throw error;}
+        const profile={...legacy};delete profile.password;
+        await saveRegistrationIntent(profile);
+      }
+      if(!user)throw new Error('Your sign-in session is missing. Return to registration and continue with the email you used.');
+      if(!pendingLandlord){
+        const result=await api('/api/landlords/registration-intent');
+        pendingLandlord=result;
+      }
+      paymentForm.hidden=false;
+      return pendingLandlord;
     }
     async function loadInstructions(){
       try{
@@ -87,21 +114,15 @@
     }
     async function finishRegistration(verificationId){
       messageEl.textContent='Payment confirmed. Creating your secure sign-in…';
-      let credential;
-      try{credential=await firebase.auth().createUserWithEmailAndPassword(pendingLandlord.email,pendingLandlord.password);}
-      catch(error){
-        if(error.code!=='auth/email-already-in-use')throw error;
-        credential=await firebase.auth().signInWithEmailAndPassword(pendingLandlord.email,pendingLandlord.password);
-      }
-      const profile={...pendingLandlord};delete profile.password;
-      const idToken=await credential.user.getIdToken();
-      await api('/api/landlords/register-paid',{method:'POST',headers:{Authorization:'Bearer '+idToken},body:JSON.stringify({paymentVerificationId:verificationId,profile})});
-      sessionStorage.removeItem('fednicePendingLandlord');
+      const user=firebase.auth().currentUser;
+      if(!user||user.email.toLowerCase()!==pendingLandlord.email.toLowerCase())throw new Error('Sign in again with the email used for registration.');
+      const idToken=await user.getIdToken();
+      await api('/api/landlords/register-paid',{method:'POST',headers:{Authorization:'Bearer '+idToken},body:JSON.stringify({paymentVerificationId:verificationId})});
       sessionStorage.removeItem('fednicePendingPaymentVerification');
       sessionStorage.removeItem('fednicePendingReceiptCode');
       paymentForm.hidden=true;
       try{
-        await credential.user.sendEmailVerification();
+        await user.sendEmailVerification();
         await firebase.auth().signOut();
         messageEl.textContent='Payment confirmed and account created. We sent a verification link to '+pendingLandlord.email+'. Open it, then sign in. Your subscription is active for 90 days.';
         resendButton.hidden=true;
@@ -120,7 +141,7 @@
         if(activeVerificationId&&activeReceiptCode!==receiptCode){activeVerificationId='';activeReceiptCode='';sessionStorage.removeItem('fednicePendingPaymentVerification');sessionStorage.removeItem('fednicePendingReceiptCode');}
         if(!activeVerificationId){
           messageEl.textContent='Submitting your receipt for Fednice review…';
-          const started=await api('/api/landlords/payment-verifications',{method:'POST',body:JSON.stringify({receiptCode,smsText,email:pendingLandlord.email,phone:pendingLandlord.phone})});
+          const started=await api('/api/landlords/payment-verifications',{method:'POST',body:JSON.stringify({receiptCode,smsText})});
           activeVerificationId=started.verificationId;activeReceiptCode=receiptCode;
           sessionStorage.setItem('fednicePendingPaymentVerification',activeVerificationId);
           sessionStorage.setItem('fednicePendingReceiptCode',activeReceiptCode);
@@ -141,9 +162,9 @@
       try{await user.sendEmailVerification();await firebase.auth().signOut();messageEl.textContent='A new verification link has been sent. Open it, then sign in.';}
       catch{messageEl.textContent='Could not resend the verification email. Try again later or contact Fednice.';resendButton.disabled=false;}
     });
-    try{pendingLandlord=JSON.parse(sessionStorage.getItem('fednicePendingLandlord')||'null');}catch{pendingLandlord=null;}
-    if(!pendingLandlord){paymentForm.hidden=true;messageEl.textContent='Registration details were not found. Please return to the registration form and try again.';}
+    paymentForm.hidden=true;
     loadInstructions();
+    loadRegistrationIntent().catch(error=>{paymentForm.hidden=true;messageEl.textContent=error.message||'Registration details could not be loaded. Please return to registration and try again.';});
   </script>
 </body>
 </html>

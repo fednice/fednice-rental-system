@@ -35,7 +35,7 @@
         <article class="summary-card"><span class="summary-label">Occupied</span><strong id="occupied-houses" class="summary-value">0</strong></article>
         <article class="summary-card"><span class="summary-label">Vacant</span><strong id="vacant-houses" class="summary-value">0</strong></article>
         <article class="summary-card rent"><span class="summary-label">Expected rent / month</span><strong id="expected-rent" class="summary-value">KSh 0</strong></article>
-        <article id="subscription-card" class="summary-card subscription"><span class="summary-label">Next subscription due</span><strong id="subscription-days" class="summary-value">Checking…</strong><span id="subscription-date" class="summary-label"></span></article>
+        <article id="subscription-card" class="summary-card subscription"><span class="summary-label">Next subscription due</span><strong id="subscription-days" class="summary-value">Checking…</strong><span id="subscription-date" class="summary-label"></span><a class="record-button" href="renewal.html" style="align-self:flex-start;margin-top:8px">Renew subscription</a></article>
       </section>
       <div class="layout">
         <div>
@@ -76,6 +76,7 @@
       let landlordPropertyName = 'FEDNICE Rental System';
       let subscriptionTarget = null;
       let subscriptionDeadlineLabel = 'Trial ends';
+      let subscriptionExpiredRedirecting = false;
       function updateSubscriptionCountdown() {
         const card = document.getElementById('subscription-card');
         const daysOutput = document.getElementById('subscription-days');
@@ -83,7 +84,8 @@
         if (!subscriptionTarget || !Number.isFinite(subscriptionTarget.getTime())) return;
         const difference = subscriptionTarget.getTime() - Date.now();
         if (difference <= 0) {
-          daysOutput.textContent = 'Payment due';
+          daysOutput.textContent = 'Subscription expired';
+          if (!subscriptionExpiredRedirecting) { subscriptionExpiredRedirecting = true; setTimeout(() => window.location.replace('renewal.html'), 800); }
           dateOutput.textContent = `${subscriptionDeadlineLabel} ${formatDate(subscriptionTarget)}`;
           card.classList.add('expired');
           return;
@@ -347,6 +349,10 @@
         const response = await fetch(`${apiBase}/api/landlords/me`, {headers:{Authorization:`Bearer ${token}`}});
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'This login does not have an activated landlord profile.');
+        if (data.subscriptionExpired) {
+          window.location.replace('renewal.html');
+          throw new Error('Your subscription has expired. Opening the secure renewal page…');
+        }
         const propertyName = data.propertyName || 'Your apartments';
         landlordPropertyName = propertyName;
         document.getElementById('property-heading').textContent = propertyName;
@@ -371,7 +377,6 @@
           dateOutput.textContent = 'Subscription date not set';
           return;
         }
-        renewalDate.setHours(23, 59, 59, 999);
         subscriptionTarget = renewalDate;
         subscriptionDeadlineLabel = data.subscriptionStatus === 'active' ? 'Renew by' : 'Trial ends';
         updateSubscriptionCountdown();
@@ -389,7 +394,14 @@
           setTimeout(() => { if (notice.textContent === 'Your landlord dashboard is ready.') notice.hidden = true; }, 3500);
         } catch (error) {
           showNotice(error.message || 'Could not load your landlord account.', true);
-          if (/activated landlord profile/i.test(error.message)) setTimeout(() => firebase.auth().signOut(), 2500);
+          if (/activated landlord profile/i.test(error.message)) {
+            try {
+              const token = await user.getIdToken();
+              const intent = await fetch(`${apiBase}/api/landlords/registration-intent`, {headers:{Authorization:`Bearer ${token}`}});
+              if (intent.ok) { window.location.replace('payment.html'); return; }
+            } catch { /* Continue to the sign-out fallback. */ }
+            setTimeout(() => firebase.auth().signOut(), 2500);
+          }
         }
       });
       document.getElementById('logout').addEventListener('click', async () => { await firebase.auth().signOut(); window.location.href = 'login.html'; });

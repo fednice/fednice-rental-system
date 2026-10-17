@@ -79,10 +79,21 @@ function requireAuth(req, res, next) {
   if (!match) return res.status(401).json({ error: 'Please sign in again.' });
   admin.auth().verifyIdToken(match[1], true).then(decoded => { req.user = decoded; next(); }).catch(() => res.status(401).json({ error: 'Please sign in again.' }));
 }
+function requireActiveLandlord(req, res, next) {
+  db.collection('landlords').doc(req.user.uid).get().then(snapshot => {
+    if (!snapshot.exists) return res.status(403).json({ error: 'An active landlord account is required.' });
+    const data = snapshot.data();
+    const now = Date.now();
+    const active = !data.subscriptionStatus || data.subscriptionStatus === 'active' || (data.subscriptionStatus === 'trial' && data.trialEndsAt?.toMillis?.() > now);
+    const notExpired = !data.subscriptionEndsAt || data.subscriptionEndsAt.toMillis() > now;
+    if (!active || !notExpired) return res.status(403).json({ error: 'Your subscription has expired. Renew your subscription to continue.' });
+    next();
+  }).catch(() => res.status(500).json({ error: 'Could not verify your subscription. Please try again.' }));
+}
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.post('/api/tenant-access-codes', requireAuth, asyncRoute(async (req, res) => {
+app.post('/api/tenant-access-codes', requireAuth, requireActiveLandlord, asyncRoute(async (req, res) => {
   const landlordRef = db.collection('landlords').doc(req.user.uid);
   const landlord = await landlordRef.get();
   if (!landlord.exists) return res.status(403).json({ error: 'An active landlord account is required.' });
@@ -189,7 +200,7 @@ app.post('/api/tenants/login', tenantLoginLimit, asyncRoute(async (req, res) => 
   return res.json({ customToken });
 }));
 
-app.post('/api/tenants/revoke', requireAuth, asyncRoute(async (req, res) => {
+app.post('/api/tenants/revoke', requireAuth, requireActiveLandlord, asyncRoute(async (req, res) => {
   const tenantId = String(req.body.tenantId || '').trim();
   if (!/^[A-Za-z0-9_-]{1,150}$/.test(tenantId)) return res.status(400).json({ error: 'Choose a valid tenant record.' });
   const tenantRef = db.collection('landlords').doc(req.user.uid).collection('tenants').doc(tenantId);
@@ -247,14 +258,47 @@ app.get('/api/landlords/payment-instructions', (req, res) => {
   return res.json({ amount: Number(process.env.LANDLORD_REGISTRATION_AMOUNT || 1000), provider: 'equity', paybill: '247247', accountNumber });
 });
 
-app.post('/api/landlords/payment-verifications', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many payment checks. Please wait and try again.' }), asyncRoute(async (req, res) => {
+app.post('/api/landlords/registration-intent', requireAuth, rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many registration attempts. Please wait and try again.' }), asyncRoute(async (req, res) => {
+  if (!req.user.uid || !req.user.email) return res.status(401).json({ error: 'Please sign in with your email account.' });
+  const email = req.user.email.toLowerCase();
+  const profile = req.body.profile || {};
+  let phone;
+  try { phone = normalizePhone(profile.phone); }
+  catch { return res.status(400).json({ error: 'Enter a valid Kenyan mobile number.' }); }
+  const safeProfile = {
+    fullName: String(profile.fullName || '').trim().slice(0, 120), email,
+    idNo: String(profile.idNo || '').trim().slice(0, 20), phone,
+    county: String(profile.county || '').trim().slice(0, 80),
+    constituency: String(profile.constituency || '').trim().slice(0, 80),
+    propertyName: String(profile.propertyName || '').trim().slice(0, 120)
+  };
+  if (!safeProfile.fullName || !safeProfile.idNo || !safeProfile.county || !safeProfile.constituency || !safeProfile.propertyName) return res.status(400).json({ error: 'Please complete all required landlord details.' });
+  const landlordRef = db.collection('landlords').doc(req.user.uid);
+  if ((await landlordRef.get()).exists) return res.status(409).json({ error: 'A landlord profile already exists for this account. Please sign in.' });
+  await db.collection('landlordRegistrationIntents').doc(req.user.uid).set({ ...safeProfile, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  return res.json({ saved: true });
+}));
+
+app.get('/api/landlords/registration-intent', requireAuth, asyncRoute(async (req, res) => {
+  const intent = await db.collection('landlordRegistrationIntents').doc(req.user.uid).get();
+  if (!intent.exists || intent.get('email') !== String(req.user.email || '').toLowerCase()) return res.status(404).json({ error: 'Registration details were not found. Return to registration and try again.' });
+  const data = intent.data();
+  return res.json({ email: data.email, phone: data.phone, fullName: data.fullName, propertyName: data.propertyName });
+}));
+
+app.post('/api/landlords/payment-verifications', requireAuth, rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many payment checks. Please wait and try again.' }), asyncRoute(async (req, res) => {
   if (!/^\d{5,20}$/.test(String(process.env.EQUITY_ACCOUNT_NUMBER || '0726387275').trim())) return res.status(503).json({ error: 'Equity payment instructions are not configured yet. Please contact Fednice Solutions.' });
   const receiptCode = String(req.body.receiptCode || '').trim().toUpperCase();
   const smsText = String(req.body.smsText || '').trim();
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const intent = await db.collection('landlordRegistrationIntents').doc(req.user.uid).get();
+  const landlord = intent.exists ? null : await db.collection('landlords').doc(req.user.uid).get();
+  const paymentKind = intent.exists ? 'registration' : 'renewal';
+  const accountData = intent.exists ? intent.data() : landlord?.exists ? landlord.data() : null;
+  if (!accountData || accountData.email !== String(req.user.email || '').toLowerCase()) return res.status(403).json({ error: 'Complete registration or sign in to your landlord account before submitting payment.' });
+  const email = accountData.email;
   let phone;
-  try { phone = normalizePhone(req.body.phone); }
-  catch { return res.status(400).json({ error: 'Enter the Kenyan phone number used for this registration.' }); }
+  try { phone = normalizePhone(accountData.phone); }
+  catch { return res.status(400).json({ error: 'A valid phone number is required on your account. Contact Fednice to update it.' }); }
   if (!/^[A-Z0-9]{8,12}$/.test(receiptCode) || smsText.length < 20 || !smsText.toUpperCase().replace(/\s/g, '').includes(receiptCode)) {
     return res.status(400).json({ error: 'Paste the original M-Pesa message and enter the receipt code exactly as shown.' });
   }
@@ -275,7 +319,9 @@ app.post('/api/landlords/payment-verifications', rateLimit({ windowMs: 15 * 60 *
       const previousRef = db.collection('landlordPaymentVerifications').doc(previousId);
       const previous = await transaction.get(previousRef);
       if (!previous.exists) { duplicate = true; return; }
-      if (previous.get('emailHash') === crypto.createHash('sha256').update(email).digest('hex') && ['pending_review','paid','registered'].includes(previous.get('status'))) {
+      const sameKind = (previous.get('kind') || 'registration') === paymentKind;
+      const sameAccount = paymentKind !== 'renewal' || previous.get('landlordUid') === req.user.uid;
+      if (sameKind && sameAccount && previous.get('emailHash') === crypto.createHash('sha256').update(email).digest('hex') && ['pending_review','paid','registered','renewed'].includes(previous.get('status'))) {
         existingVerificationId = previousId;
         existingStatus = previous.get('status');
         return;
@@ -289,6 +335,8 @@ app.post('/api/landlords/payment-verifications', rateLimit({ windowMs: 15 * 60 *
       receiptCode, amountExpected: Number(process.env.LANDLORD_REGISTRATION_AMOUNT || 1000),
       emailHash: crypto.createHash('sha256').update(email).digest('hex'), email,
       phone,
+      kind: paymentKind,
+      ...(paymentKind === 'renewal' ? { landlordUid: req.user.uid } : {}),
       smsText: smsText.slice(0, 2000),
       status: 'pending_review', createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -304,7 +352,7 @@ function requirePaymentReviewer(req, res, next) {
   const allowed = String(process.env.PAYMENT_REVIEWER_EMAILS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
   if (!allowed.length) return res.status(503).json({ error: 'Payment review is not configured. Contact the system administrator.' });
   requireAuth(req, res, () => {
-    if (!req.user.email || !allowed.includes(req.user.email.toLowerCase())) return res.status(403).json({ error: 'You are not allowed to review payments.' });
+    if (!req.user.email || req.user.email_verified !== true || !allowed.includes(req.user.email.toLowerCase())) return res.status(403).json({ error: 'A verified, authorized reviewer account is required.' });
     next();
   });
 }
@@ -312,7 +360,7 @@ app.get('/api/admin/landlord-payment-verifications', requirePaymentReviewer, asy
   const snapshot = await db.collection('landlordPaymentVerifications').where('status', '==', 'pending_review').limit(100).get();
   return res.json({ payments: snapshot.docs.map(doc => {
     const data = doc.data();
-    return { id: doc.id, receiptCode: data.receiptCode, smsText: data.smsText || '', amountExpected: data.amountExpected, email: data.email || '', phone: data.phone || '', submittedAt: data.createdAt?.toDate?.().toISOString() || null };
+    return { id: doc.id, kind: data.kind || 'registration', receiptCode: data.receiptCode, smsText: data.smsText || '', amountExpected: data.amountExpected, email: data.email || '', phone: data.phone || '', submittedAt: data.createdAt?.toDate?.().toISOString() || null };
   }) });
 }));
 app.post('/api/admin/landlord-payment-verifications/:verificationId/review', requirePaymentReviewer, asyncRoute(async (req, res) => {
@@ -341,31 +389,29 @@ app.get('/api/landlords/payment-verifications/:verificationId', rateLimit({ wind
   const doc = await db.collection('landlordPaymentVerifications').doc(req.params.verificationId).get();
   if (!doc.exists) return res.status(404).json({ error: 'Payment check not found.' });
   const data = doc.data();
-  if (data.expiresAt.toMillis() <= Date.now() && !['paid','rejected','registered'].includes(data.status)) return res.json({ status: 'timeout' });
+  if (data.expiresAt.toMillis() <= Date.now() && !['paid','rejected','registered','renewed'].includes(data.status)) return res.json({ status: 'timeout' });
   return res.json({ status: data.status });
 }));
 
 app.post('/api/landlords/register-paid', requireAuth, asyncRoute(async (req, res) => {
   const verificationId = String(req.body.paymentVerificationId || '');
-  const profile = req.body.profile || {};
   if (!/^[a-f0-9-]{36}$/i.test(verificationId)) return res.status(400).json({ error: 'Complete the M-Pesa payment check first.' });
   if (!req.user.email || !req.user.uid) return res.status(401).json({ error: 'Please sign in again.' });
   const emailHash = crypto.createHash('sha256').update(req.user.email.toLowerCase()).digest('hex');
   const verificationRef = db.collection('landlordPaymentVerifications').doc(verificationId);
   const landlordRef = db.collection('landlords').doc(req.user.uid);
+  const intentRef = db.collection('landlordRegistrationIntents').doc(req.user.uid);
   let failure = '';
   let alreadyCreated = false;
   await db.runTransaction(async transaction => {
-    const [verification, landlord] = await Promise.all([transaction.get(verificationRef), transaction.get(landlordRef)]);
+    const [verification, landlord, intent] = await Promise.all([transaction.get(verificationRef), transaction.get(landlordRef), transaction.get(intentRef)]);
     if (landlord.exists) { alreadyCreated = landlord.get('email') === req.user.email.toLowerCase(); return; }
-    if (!verification.exists || verification.get('status') !== 'paid' || verification.get('emailHash') !== emailHash || verification.get('registered')) { failure = 'The verified payment is not linked to this registration. Please restart registration or contact Fednice.'; return; }
-    let phone;
-    try { phone = normalizePhone(profile.phone); } catch { failure = 'Enter a valid Kenyan mobile number.'; return; }
-    if (phone !== verification.get('phone')) { failure = 'The registration phone number does not match the M-Pesa payer. Start again using the same phone number.'; return; }
+    if (!intent.exists || intent.get('email') !== req.user.email.toLowerCase()) { failure = 'Registration details were not found. Please return to registration or contact Fednice.'; return; }
+    if (!verification.exists || verification.get('kind') === 'renewal' || verification.get('status') !== 'paid' || verification.get('emailHash') !== emailHash || verification.get('phone') !== intent.get('phone') || verification.get('registered')) { failure = 'The verified payment is not linked to this registration. Please contact Fednice.'; return; }
     const safeProfile = {
-      fullName: String(profile.fullName || '').trim().slice(0, 120), email: req.user.email.toLowerCase(), phone,
-      idNo: String(profile.idNo || '').trim().slice(0, 20), county: String(profile.county || '').slice(0, 80),
-      constituency: String(profile.constituency || '').slice(0, 80), propertyName: String(profile.propertyName || '').trim().slice(0, 120),
+      fullName: intent.get('fullName'), email: req.user.email.toLowerCase(), phone: intent.get('phone'),
+      idNo: intent.get('idNo'), county: intent.get('county'),
+      constituency: intent.get('constituency'), propertyName: intent.get('propertyName'),
       subscriptionStatus: 'active', subscriptionStartedAt: verification.get('paidAt'),
       subscriptionEndsAt: admin.firestore.Timestamp.fromMillis(verification.get('paidAt').toMillis() + 90 * 24 * 60 * 60 * 1000),
       emailVerificationRequired: true,
@@ -375,12 +421,38 @@ app.post('/api/landlords/register-paid', requireAuth, asyncRoute(async (req, res
     if (!safeProfile.fullName || !safeProfile.idNo || !safeProfile.county || !safeProfile.constituency || !safeProfile.propertyName) { failure = 'Please complete all required landlord details.'; return; }
     transaction.create(landlordRef, safeProfile);
     transaction.update(verificationRef, { status: 'registered', registered: true, landlordUid: req.user.uid, registeredAt: admin.firestore.FieldValue.serverTimestamp() });
+    transaction.delete(intentRef);
   });
   if (failure) return res.status(403).json({ error: failure });
   return res.status(alreadyCreated ? 200 : 201).json({ created: true });
 }));
 
-app.post('/api/landlords/payment-submissions/:paymentId/review', requireAuth, asyncRoute(async (req, res) => {
+app.post('/api/landlords/renew-paid', requireAuth, asyncRoute(async (req, res) => {
+  const verificationId = String(req.body.paymentVerificationId || '');
+  if (!/^[a-f0-9-]{36}$/i.test(verificationId) || !req.user.email) return res.status(400).json({ error: 'Complete a valid subscription payment review first.' });
+  const verificationRef = db.collection('landlordPaymentVerifications').doc(verificationId);
+  const landlordRef = db.collection('landlords').doc(req.user.uid);
+  let failure = '';
+  let alreadyRenewed = false;
+  await db.runTransaction(async transaction => {
+    const [verification, landlord] = await Promise.all([transaction.get(verificationRef), transaction.get(landlordRef)]);
+    if (!landlord.exists) { failure = 'No landlord account was found for this sign-in.'; return; }
+    if (verification.exists && verification.get('status') === 'renewed' && landlord.get('lastRenewalPaymentId') === verificationId) { alreadyRenewed = true; return; }
+    if (!verification.exists || verification.get('kind') !== 'renewal' || verification.get('landlordUid') !== req.user.uid || verification.get('status') !== 'paid' || verification.get('emailHash') !== crypto.createHash('sha256').update(req.user.email.toLowerCase()).digest('hex') || verification.get('registered')) { failure = 'This verified payment is not linked to your account. Please contact Fednice.'; return; }
+    const currentEnd = landlord.get('subscriptionEndsAt')?.toMillis?.() || 0;
+    const start = Math.max(Date.now(), currentEnd);
+    transaction.update(landlordRef, {
+      subscriptionStatus: 'active', subscriptionStartedAt: admin.firestore.Timestamp.fromMillis(start),
+      subscriptionEndsAt: admin.firestore.Timestamp.fromMillis(start + 90 * 24 * 60 * 60 * 1000),
+      lastRenewalPaymentId: verificationId, updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    transaction.update(verificationRef, { status: 'renewed', registered: true, renewedAt: admin.firestore.FieldValue.serverTimestamp() });
+  });
+  if (failure) return res.status(403).json({ error: failure });
+  return res.json({ renewed: true, alreadyRenewed, days: 90 });
+}));
+
+app.post('/api/landlords/payment-submissions/:paymentId/review', requireAuth, requireActiveLandlord, asyncRoute(async (req, res) => {
   const paymentId = String(req.params.paymentId || '');
   if (!/^[A-Za-z0-9_-]{1,150}$/.test(paymentId)) return res.status(400).json({ error: 'Invalid payment submission.' });
   const decision = String(req.body.decision || '');
@@ -438,7 +510,7 @@ app.post('/api/landlords/payment-submissions/:paymentId/review', requireAuth, as
   return res.json({ reviewed: true, status: decision, tenantThankYou: decision === 'confirmed', thankYouSmsStatus });
 }));
 
-app.get('/api/landlords/payment-submissions', requireAuth, asyncRoute(async (req, res) => {
+app.get('/api/landlords/payment-submissions', requireAuth, requireActiveLandlord, asyncRoute(async (req, res) => {
   const snapshot = await db.collection('landlords').doc(req.user.uid).collection('payments').get();
   const submissions = snapshot.docs.map(doc => {
     const data = doc.data();
@@ -490,7 +562,13 @@ app.get('/api/landlords/me', requireAuth, asyncRoute(async (req, res) => {
   if (!doc.exists) return res.status(404).json({ error: 'No activated landlord profile was found.' });
   const data = doc.data();
   if (data.emailVerificationRequired && !req.user.email_verified) return res.status(403).json({ error: 'Verify your email before opening the landlord dashboard.' });
-  return res.json({ uid: req.user.uid, fullName: data.fullName, email: data.email, propertyName: data.propertyName, subscriptionStatus: data.subscriptionStatus, trialEndsAt: data.trialEndsAt?.toDate?.().toISOString() || null, subscriptionEndsAt: data.subscriptionEndsAt?.toDate?.().toISOString() || null });
+  const subscriptionEndsAt = data.subscriptionEndsAt?.toDate?.().toISOString() || null;
+  const trialEndsAt = data.trialEndsAt?.toDate?.().toISOString() || null;
+  const expiresAt = subscriptionEndsAt || (data.subscriptionStatus === 'trial' ? trialEndsAt : null);
+  const statusExpired = !!data.subscriptionStatus && !['active','trial'].includes(data.subscriptionStatus);
+  const trialExpired = data.subscriptionStatus === 'trial' && (!expiresAt || new Date(expiresAt).getTime() <= Date.now());
+  const subscriptionExpired = statusExpired || trialExpired || (!!expiresAt && new Date(expiresAt).getTime() <= Date.now());
+  return res.json({ uid: req.user.uid, fullName: data.fullName, email: data.email, phone: data.phone || '', propertyName: data.propertyName, subscriptionStatus: data.subscriptionStatus, trialEndsAt, subscriptionEndsAt, subscriptionExpired });
 }));
 
 app.use((error, req, res, next) => {
