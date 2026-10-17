@@ -3,4 +3,10 @@
   <url>
     <loc>https://fednice.github.io/fednice-rental-system/</loc>
   </url>
+  <url><loc>https://fednice.github.io/fednice-rental-system/role-selection.html</loc></url>
+  <url><loc>https://fednice.github.io/fednice-rental-system/register.html</loc></url>
+  <url><loc>https://fednice.github.io/fednice-rental-system/tenant-register.html</loc></url>
+  <url><loc>https://fednice.github.io/fednice-rental-system/login.html</loc></url>
+  <url><loc>https://fednice.github.io/fednice-rental-system/tenant-login.html</loc></url>
+  <url><loc>https://fednice.github.io/fednice-rental-system/payment.html</loc></url>
 </urlset>

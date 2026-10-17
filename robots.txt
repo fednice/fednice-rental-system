@@ -1,12 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /admin.html
-Disallow: /dashboard.html
-Disallow: /login.html
-Disallow: /payment.html
-Disallow: /register.html
-Disallow: /tenant-dashboard.html
-Disallow: /tenant-login.html
-Disallow: /tenant-register.html
 
 Sitemap: https://fednice.github.io/fednice-rental-system/sitemap.xml
